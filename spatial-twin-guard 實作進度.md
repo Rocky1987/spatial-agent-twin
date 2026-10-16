@@ -103,8 +103,8 @@ spatial-twin-guard/
 - [x] 兩個窗格中間有分隔條，可用滑鼠拖曳調整寬度（20–80%）。用原生 `pointerdown` / `setPointerCapture` 實作，沒有引入套件
 - [x] 窗格尺寸改變時，BIM 的渲染器與相機比例（`ResizeObserver` → `renderer.resize()`、`camera.updateAspect()`）、Cesium 的重繪（`requestRender()`）會同步更新
 - [x] 左側地圖下方：圖形比例尺（取畫面底部 100px 對應的地面距離，再取整成 1／2／5／10 × 10ⁿ）
-- [x] 底部資訊列：圖資來源、比例尺分母（以 OGC 0.28 mm 像素換算）、滑鼠所在位置的 TWD97（EPSG:3826）坐標與經緯度，隨滑鼠移動更新。換算寫在 `frontend/src/utils/twd97.ts`，已用兩個已知點驗算（121°E, 23.7°N → 250000, 2621799.6）
-  - [ ] 尚未與官方控制點比對精度
+- [x] 底部資訊列：圖資來源、比例尺分母（以 OGC 0.28 mm 像素換算）、滑鼠所在位置的 TWD97（EPSG:3826）坐標與經緯度，隨滑鼠移動更新。換算改用 `proj4`（EPSG:3826，定義寫在 `frontend/src/utils/twd97.ts`）。原本手寫的公式用 2000 個隨機台灣座標與 proj4 對照，最大差異 0.00001 m，確認公式無誤後才換掉
+  - [ ] 尚未與官方控制點比對（確認參數與官方成果一致）
 - [x] 啟用 Cesium World Terrain（`Terrain.fromWorldTerrain()`），目標標記點貼地（`CLAMP_TO_GROUND`）。比例尺與座標是用橢球面算的，不含地形高度，山區傾斜視角會有小誤差
 
 **過關檢查**
