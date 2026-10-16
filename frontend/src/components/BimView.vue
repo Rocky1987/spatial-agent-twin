@@ -61,7 +61,20 @@ onMounted(async () => {
     console.error(e)
   }
   setPaused(!props.active)
+
+  // 視窗寬度改變（分割／收合）時，同步渲染器與相機比例
+  ro = new ResizeObserver(() => syncSize())
+  ro.observe(container.value!)
 })
+
+let ro: ResizeObserver | undefined
+function syncSize() {
+  const w = world.value
+  const el = container.value
+  if (!w || !el || el.clientWidth === 0) return
+  w.renderer?.resize()
+  w.camera.updateAspect()
+}
 
 function navigate(a: NavAction) {
   const c = world.value?.camera.controls
@@ -86,10 +99,18 @@ function setPaused(paused: boolean) {
 
 watch(() => props.active, (a) => {
   setPaused(!a)
-  if (a) components.value?.get(OBC.FragmentsManager).core.update(true)
+  if (a) {
+    syncSize()
+    // 每次開啟窗格都重新取景，避免 0 寬度時算出的視角跑掉
+    if (fitBox) world.value?.camera.controls.fitToBox(fitBox, false)
+    components.value?.get(OBC.FragmentsManager).core.update(true)
+  }
 })
 
-onBeforeUnmount(() => components.value?.dispose())
+onBeforeUnmount(() => {
+  ro?.disconnect()
+  components.value?.dispose()
+})
 
 defineExpose({ components, world, loadIfc, navigate })
 </script>
