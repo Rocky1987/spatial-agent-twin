@@ -7,6 +7,7 @@ import {
   Cartesian3,
   Cartographic,
   Cesium3DTileFeature,
+  Cesium3DTileset,
   Cesium3DTileStyle,
   Color,
   createOsmBuildingsAsync,
@@ -45,6 +46,37 @@ function loadTarget(): Target {
 }
 let target: Target = loadTarget()
 let osm: Awaited<ReturnType<typeof createOsmBuildingsAsync>> | undefined
+
+// 圖層清單：OSM Buildings 預設開；內政部三維建物（臺北市，3D Tiles 服務代碼 30，不需 token）預設關，第一次打開才載入
+const NLSC_BUILDING_URL = 'https://3dtiles.nlsc.gov.tw/building/tiles3d/30/tileset.json'
+const layerState = ref({ osm: true, nlsc: false })
+const nlscLoading = ref(false)
+let nlsc: Cesium3DTileset | undefined
+
+async function toggleLayer(id: 'osm' | 'nlsc') {
+  const v = viewer.value
+  if (!v) return
+  const on = (layerState.value[id] = !layerState.value[id])
+  if (id === 'osm') {
+    if (osm) osm.show = on // 還沒載入完的話，載入後依 layerState 決定
+  } else if (nlsc) {
+    nlsc.show = on
+  } else if (on) {
+    nlscLoading.value = true
+    try {
+      nlsc = await Cesium3DTileset.fromUrl(NLSC_BUILDING_URL)
+      nlsc.show = layerState.value.nlsc
+      v.scene.primitives.add(nlsc)
+    } catch (err) {
+      console.warn('內政部三維建物載入失敗', err)
+      emit('status', '內政部三維建物載入失敗')
+      layerState.value.nlsc = false
+    } finally {
+      nlscLoading.value = false
+    }
+  }
+  v.scene.requestRender()
+}
 
 const container = ref<HTMLDivElement>()
 // Viewer 不能被 Vue 深層響應式包住
@@ -205,6 +237,7 @@ onMounted(async () => {
 
   try {
     osm = await createOsmBuildingsAsync()
+    osm.show = layerState.value.osm
     v.scene.primitives.add(osm)
     applyTarget(v)
   } catch (err) {
@@ -342,6 +375,18 @@ void props
 <template>
   <div class="cesium-wrap">
     <div ref="container" class="cesium-container" />
+    <div class="ui absolute right-[64px] top-[60px] z-10 rounded-xl border border-solid border-[var(--line)] bg-[var(--panel)] px-3 py-2 text-sm text-white backdrop-blur">
+      <div class="mb-1 font-semibold">圖層</div>
+      <label class="flex cursor-pointer items-center gap-2 py-0.5">
+        <input type="checkbox" :checked="layerState.osm" @change="toggleLayer('osm')" />
+        OSM 建物
+      </label>
+      <label class="flex cursor-pointer items-center gap-2 py-0.5">
+        <input type="checkbox" :checked="layerState.nlsc" :disabled="nlscLoading" @change="toggleLayer('nlsc')" />
+        內政部三維建物（臺北市）
+        <span v-if="nlscLoading" class="opacity-60">載入中…</span>
+      </label>
+    </div>
     <div v-if="scale.px" class="scale">
       <span>{{ scale.label }}</span>
       <i :style="{ width: scale.px + 'px' }" />
