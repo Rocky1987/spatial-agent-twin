@@ -10,7 +10,7 @@
 
 - **只有三個輕量服務：** `frontend`（Vue 3 + TypeScript + Vite）、`backend`（ASP.NET Core 10 Web API）、`nginx`。不建 `src/base` 母體，不用 PostgreSQL / pgvector，也不用 MSW。
 - **用 System Prompt 取代資料庫查詢：** 重點樓層與空間（約 20–30 筆）寫成一份靜態 JSON 對照表，注入 LLM 的 System Prompt。
-- **宏觀到微觀只做 CSS 淡入切換：** Cesium 飛到目標大樓上空後，淡入 That Open 的獨立 BIM 畫面。不轉 `.glb`，不用 Blender 改模型，也不做座標錨定。
+- **宏觀到微觀只做視窗切換：** Cesium 飛到目標大樓上空後，在右側展開 That Open 的獨立 BIM 窗格（雙視窗，地圖留在左邊；原案是 CSS 淡入疊畫面，2026-10-16 改）。不轉 `.glb`，不用 Blender 改模型，也不做座標錨定。
 - **不寫自動化評測：** 用對話視窗手動驗證 5 個展示情境（見[文末](#5-個展示情境)）。
 
 照這幾條，還可以再省下這些：
@@ -24,7 +24,7 @@
 | Stage | 內容 | 估計（人日） | 限時 | 實際 | 狀態 |
 | --- | --- | --- | --- | --- | --- |
 | 1 | 前端雙畫面：Cesium 台灣底圖 ↔ That Open 載入 IFC | 1–2 | 2 | 1 | 過關（Institute 載入秒數待補） |
-| 2 | 宏觀→微觀轉場：目標大樓高亮、飛行、淡入 BIM | 0.5–1 | 1 | | 未開始 |
+| 2 | 宏觀→微觀轉場：目標大樓高亮、飛行、開啟 BIM 窗格（已改雙視窗） | 0.5–1 | 1 | 約 1 | 過關（預設目標建物待寫死） |
 | 3 | BIM 互動與對照表：剖切樓層、隔離空間、高亮 | 1.5–2.5 | 2.5 | | 未開始 |
 | 4 | AI 指令：後端 LLM + System Prompt + 工具呼叫 | 1–2 | 2 | | 未開始 |
 | 5 | IoT 告警模擬、5 個情境驗收、Docker Compose 打包 | 1 | 1.5 | | 未開始 |
@@ -86,19 +86,42 @@ spatial-twin-guard/
 
 ## Stage 2 宏觀→微觀轉場（0.5–1 人日，限時 1）
 
-- [ ] 在台灣選一棟 OSM 建物，當作研究所大樓的替身。模型本身在德國，也沒有地理參考，所以不做座標錨定。點選建物（`scene.pick`），記下它的經緯度與 `elementId`
-- [ ] 載入 Cesium OSM Buildings（`createOsmBuildingsAsync`），用 `Cesium3DTileStyle` 讓目標大樓以醒目的顏色顯示
-- [ ] `flyToLocation('institute')`：用 `camera.flyTo` 飛到大樓上空斜視，飛行完成時淡入 BIM 畫面
-- [ ] `flyToLocation('taiwan')`：淡回 Cesium，相機拉回台灣全景
-- [ ] 每個函式都回傳 Promise，等轉場完成才結束，Stage 4 才能把工具依序串起來
-- [ ] 加兩個除錯按鈕：「飛往大樓」、「回到台灣」
+> **設計調整（2026-10-16）：** 原本是兩個畫面疊在一起、用淡入切換。改成**雙視窗**：地圖固定在左邊，BIM 窗格從右邊展開，使用者不必離開地圖。轉場函式的介面不變（仍是回傳 Promise 的 `flyToLocation`），Stage 4 的工具串接不受影響。
+
+- [x] 在台灣選一棟 OSM 建物，當作研究所大樓的替身。模型本身在德國，也沒有地理參考，所以不做座標錨定。點選建物（`scene.pick`），記下它的經緯度與 `elementId`
+  - 點選後存在 `localStorage`（`stg.target`）；目前選定的建物：`elementId=298062721`，經緯度 121.56508, 25.05013
+  - [ ] 把這棟寫成程式裡的預設值（目前預設是台北 101 一帶的座標，沒有 `elementId`；全新 clone 或 Docker 使用者看不到高亮）
+- [x] 載入 Cesium OSM Buildings（`createOsmBuildingsAsync`），用 `Cesium3DTileStyle` 讓目標大樓以醒目的顏色顯示（紅色）
+- [x] `flyToLocation('institute')`：飛到大樓上空斜視（`flyToBoundingSphere`，3 秒），飛行完成時展開 BIM 窗格
+- [x] `flyToLocation('taiwan')`：收合 BIM 窗格，相機拉回台灣全景（`flyTo`，2.5 秒）
+- [x] 每個函式都回傳 Promise，等轉場完成才結束，Stage 4 才能把工具依序串起來
+- [x] 加兩個除錯按鈕：「飛往大樓」、「回到台灣」
+
+**雙視窗與地圖資訊（超出原計畫，使用者要求）**
+
+- [x] 右緣箭頭按鈕開啟／收合 BIM 窗格；BIM 窗格右上角 ✕ 關閉
+- [x] 兩個窗格中間有分隔條，可用滑鼠拖曳調整寬度（20–80%）。用原生 `pointerdown` / `setPointerCapture` 實作，沒有引入套件
+- [x] 窗格尺寸改變時，BIM 的渲染器與相機比例（`ResizeObserver` → `renderer.resize()`、`camera.updateAspect()`）、Cesium 的重繪（`requestRender()`）會同步更新
+- [x] 左側地圖下方：圖形比例尺（取畫面底部 100px 對應的地面距離，再取整成 1／2／5／10 × 10ⁿ）
+- [x] 底部資訊列：圖資來源、比例尺分母（以 OGC 0.28 mm 像素換算）、滑鼠所在位置的 TWD97（EPSG:3826）坐標與經緯度，隨滑鼠移動更新。換算寫在 `frontend/src/utils/twd97.ts`，已用兩個已知點驗算（121°E, 23.7°N → 250000, 2621799.6）
+  - [ ] 尚未與官方控制點比對精度
+- [x] 啟用 Cesium World Terrain（`Terrain.fromWorldTerrain()`），目標標記點貼地（`CLAMP_TO_GROUND`）。比例尺與座標是用橢球面算的，不含地形高度，山區傾斜視角會有小誤差
 
 **過關檢查**
 
-- [ ] 按下「飛往大樓」：飛到大樓上空後淡入 BIM 畫面，全程 ≤ 5 秒，沒有黑畫面
-- [ ] 按下「回到台灣」，可以反向切回
+- [x] 按下「飛往大樓」：飛到大樓上空後展開 BIM 窗格，全程 ≤ 5 秒，沒有黑畫面（使用者實測，2026-10-16）
+- [x] 按下「回到台灣」，可以反向切回
 
-**不過關時：** 目標大樓的高亮做不出來，就在大樓位置放一個標記點（Cesium Entity）代替。
+**不過關時：** 目標大樓的高亮做不出來，就在大樓位置放一個標記點（Cesium Entity）代替。（實際沒有用到後備方案，但標記點仍一併保留）
+
+## 專案設定與部署（Stage 2 期間補上）
+
+- [x] **GitHub：** https://github.com/Rocky1987/spatial-agent-twin ，主分支 `main`
+- [x] **CI：** `.github/workflows/ci.yml`。push 到 `main` 與 pull request 時，在 `frontend/` 跑 Node 22、`npm ci`、`npm run build`（含 Cesium 靜態檔複製與 `vue-tsc` 型別檢查）。第一次執行 28 秒通過。目前只涵蓋前端，後端到 Stage 4 再補
+- [x] **Docker（提前到 Stage 2）：** `frontend/Dockerfile`（Node 22 打包、nginx 1.27 提供靜態檔）、`frontend/nginx.conf`（`.wasm` 為 `application/wasm`、SPA 回退）、`frontend/.dockerignore`、根目錄 `README.md`。clone 後 `docker build` 再 `docker run -p 8080:80` 即可，已在本機驗證。Docker Compose 仍留到後端出現時再做
+  - Cesium ion token 以 `--build-arg VITE_CESIUM_ION_TOKEN=...` 傳入，會打包進前端 JS（瀏覽器端本來就看得到）；沒給 token 也能跑，只是沒有 OSM 3D 建物與地形
+- [x] **Cesium ion token：** 另建專用 token，只開 `assets:read`、`assets:limited-list`，Resources 限定 OSM Buildings（96188）與 Cesium World Terrain（1），Allowed URLs 為 `http://localhost:5173`、`:5174`（Vite）、`:8080`（Docker）。放在 `frontend/.env`，已被 `.gitignore` 與 `.dockerignore` 排除
+  - 踩到的坑：Regenerate token 後，`.env` 沒更新會一直 401（`INVALID_TOKEN`）；舊 dev server 佔著 5173 時，新的會跑在 5174，必須也在白名單內
 
 ## Stage 3 BIM 互動與對照表（1.5–2.5 人日，限時 2.5）
 
@@ -199,12 +222,13 @@ spatial-twin-guard/
 
 | 日期 | Stage | 降級內容 | 原因 |
 | --- | --- | --- | --- |
-| | | | |
+| 2026-10-16 | 2 | 「疊在一起淡入切換」改成雙視窗（地圖在左、BIM 窗格在右，可拖曳、可收合） | 使用者覺得切換到另一個畫面看 BIM 不方便，地圖應該留在原頁面；函式介面不變，不算降級 |
 
 ## MVP 之後（暫緩）
 
 需要時再從[完整版清單](spatial-twin-guard%20實作進度（完整版）.md)挑：
 
+- BIM 窗格開啟時，Cesium 與 That Open 是否都要全速重繪：目前兩邊都開著；若效能不佳，再考慮降低其中一邊的更新率
 - 同畫面無縫穿透：IFC 放進 Cesium，並做座標錨定（建議先限時 1 天試轉 glTF 再決定）
 - 換成台灣或公共工程題材的 BIM 模型：2026-10-16 查過，政府資料開放平臺、建研所、營建署與 GitHub 都沒有可下載的台灣 IFC；MVP 沿用 KIT 模型。之後可自己用 Bonsai 建一棟，或向事務所／機關詢問；公共工程題材則需改 Stage 3 的樓層函式與對照表
 - SignalR 即時推播，IoT 模擬改由後端產生
