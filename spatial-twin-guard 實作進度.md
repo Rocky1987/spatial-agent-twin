@@ -202,21 +202,29 @@ spatial-twin-guard/
 
 ## Stage 4 AI 指令（1–2 人日，限時 2）
 
-- [ ] **4-1 後端**
-  - [ ] `dotnet new webapi -o backend`（.NET 10），只開一支 `POST /api/chat`
-  - [ ] 請求內容是對話紀錄，加上目前的告警清單（Stage 5 才有）
-  - [ ] 回應格式是 `{ reply, toolCalls: [{ name, args }] }`，不串流
-  - [ ] LLM 金鑰用 `dotnet user-secrets` 或環境變數保管，不放進前端
-  - [ ] 在前端的 `vite.config.ts` 設 `server.proxy`，把 `/api` 轉到本機後端，開發時不用處理 CORS
-- [ ] **4-2 System Prompt 與工具定義**
-  - [ ] System Prompt 包含三部分：角色與規則、`space-map.json` 全文、樓層換算說明（例如台灣的 2 樓是 1. Obergeschoss）
-  - [ ] 工具對應 Stage 2、3 的前端函式：`flyToLocation`、`sectionStorey`、`isolateSpaces`、`showAlerts`、`resetView`
-  - [ ] 工具參數用對照表的 `key`，並在工具的 JSON Schema 裡列成 `enum`。這樣模型只能從清單裡選，不會編出不存在的 ID，也不必照抄 22 字元的 `globalId`
-  - [ ] 後端把 `key` 換成 `globalId`，再回傳給前端
-  - [ ] 只做單輪：前端執行完工具後，不必把結果送回模型。一句複合指令，由模型一次回傳多個工具呼叫
-- [ ] **4-3 前端對話窗**
-  - [ ] 輸入框與訊息列表。每則回覆下方列出呼叫了哪些工具、帶了哪些參數，方便除錯
-  - [ ] 依序執行 `toolCalls`，前一個完成才執行下一個（例如飛行完成才剖切）
+- [x] **4-1 後端**
+  - [x] `dotnet new web -o backend`（Minimal API，.NET 9；使用者的 Visual Studio 不支援 .NET 10），只開一支 `POST /api/chat`
+  - [x] 請求內容是對話紀錄，加上目前的告警清單（Stage 5 才有）
+  - [x] 回應格式是 `{ reply, toolCalls: [{ name, args }] }`，不串流
+  - [x] LLM 金鑰用 `dotnet user-secrets` 或環境變數保管，不放進前端
+  - [x] 在前端的 `vite.config.ts` 設 `server.proxy`，把 `/api` 轉到本機後端，開發時不用處理 CORS
+- [x] **4-2 System Prompt 與工具定義**
+  - [x] System Prompt 包含三部分：角色與規則、`space-map.json` 全文、樓層換算說明（例如台灣的 2 樓是 1. Obergeschoss）
+  - [x] 工具對應 Stage 2、3 的前端函式：`flyToLocation`、`sectionStorey`、`isolateSpaces`、`highlightSpaces`、`resetView`，另加 `undo`、`redo`（`showAlerts` 留到 Stage 5）
+  - [x] 工具參數用對照表的 `key`，並在工具的 JSON Schema 裡列成 `enum`。這樣模型只能從清單裡選，不會編出不存在的 ID，也不必照抄 22 字元的 `globalId`
+  - [x] ~~後端把 `key` 換成 `globalId`~~ 略過：前端本來就用 `key` 操作，後端直接回傳 `key`
+  - [x] 只做單輪：前端執行完工具後，不必把結果送回模型。一句複合指令，由模型一次回傳多個工具呼叫
+- [x] **4-3 前端對話窗**
+  - [x] 輸入框與訊息列表。每則回覆下方列出呼叫了哪些工具、帶了哪些參數，方便除錯
+  - [x] 依序執行 `toolCalls`，前一個完成才執行下一個（例如飛行完成才剖切）
+
+**實作結果（2026-10-16）：**
+- 後端是 Minimal API（`backend/`，`SpatialTwinGuard.slnx` 可用 VS 開，埠 5000），直接用 `HttpClient` 呼叫 Anthropic Messages API，不用 SDK。預設模型 `claude-haiku-5-5`（最便宜），可用 `Anthropic:Model` 覆寫；金鑰放 `Anthropic:ApiKey`（user-secrets 或環境變數 `Anthropic__ApiKey`）。System Prompt（規則、樓層換算、兩張對照表）用 `cache_control` 快取。
+- 前端 `ChatPanel.vue` 浮在地圖左上，工具呼叫以白話顯示（原始名稱放滑鼠提示），常駐快捷指令按鈕。
+- **undo／redo 由 AI 全程掌控：** 每句會改動畫面的指令（含手動按鈕）執行前存快照，可一路退回最初，也可再往前。不設按鈕，使用者說「回到上一步」即可。
+- **操作後自動調整視角：** 剖切樓層改為接近正上方俯視（偏離垂直 25°），隔離與標紅改為 40° 斜俯視並對準目標。角度常數在 `BimView.vue`。
+- CI 新增 `backend` job（`dotnet build`，.NET 9）。
+- 已知限制：undo 不還原相機位置；退回「台灣」只收合窗格，不清 BIM 狀態；Haiku 對複合指令與樓層換算若不穩，改 `appsettings.json` 的模型或補 `zh` 同義詞。
 
 **過關檢查**
 
