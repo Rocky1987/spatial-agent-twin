@@ -11,10 +11,12 @@ public class ChatService
     private readonly string _model;
     private readonly string _system;
     private readonly JsonArray _tools;
+    private readonly SensorSimulator _sensors;
 
-    public ChatService(HttpClient http, SpaceMap map, IConfiguration cfg)
+    public ChatService(HttpClient http, SpaceMap map, IConfiguration cfg, SensorSimulator sensors)
     {
         _http = http;
+        _sensors = sensors;
         _apiKey = cfg["Anthropic:ApiKey"];
         _model = cfg["Anthropic:Model"] ?? "claude-haiku-5-5";
         _system = BuildSystemPrompt(map);
@@ -96,9 +98,11 @@ public class ChatService
             new JsonObject { ["type"] = "text", ["text"] = _system, ["cache_control"] = new JsonObject { ["type"] = "ephemeral" } },
         };
         // 告警清單每次不同，放在快取區塊之後
-        if (req.Alerts is { Count: > 0 })
+        // 告警以後端的感測器狀態為準（與推給前端的是同一份）
+        var alerts = _sensors.Alerts();
+        if (alerts.Count > 0)
         {
-            var lines = req.Alerts.Select(a => $"{a.SpaceKey}：{a.Temp:0.#}°C" + (a.Time is null ? "" : $"（{a.Time}）"));
+            var lines = alerts.Select(a => $"{a.SpaceKey}：{a.Temp:0.#}°C" + (a.Since is { } t ? $"（{t.ToLocalTime():HH:mm:ss} 起）" : ""));
             system.Add(new JsonObject { ["type"] = "text", ["text"] = "目前的告警清單：\n" + string.Join("\n", lines) });
         }
         else

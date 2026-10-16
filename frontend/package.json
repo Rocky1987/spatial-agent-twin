@@ -12,6 +12,7 @@
     "prebuild": "npm run copy-cesium"
   },
   "dependencies": {
+    "@microsoft/signalr": "^10.0.11",
     "@thatopen/components": "^3.4.9",
     "@thatopen/components-front": "^3.4.5",
     "@thatopen/fragments": "^3.4.8",

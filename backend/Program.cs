@@ -3,6 +3,9 @@ using SpatialTwinGuard;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<SpaceMap>();
 builder.Services.AddHttpClient<ChatService>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<SensorSimulator>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SensorSimulator>());
 
 var app = builder.Build();
 
@@ -20,6 +23,8 @@ app.MapPost("/api/chat", async (ChatRequest req, ChatService chat, CancellationT
         return Results.Json(new { error = e.Message }, statusCode: e.Status);
     }
 });
+
+app.MapHub<SensorHub>("/hubs/sensors");
 
 app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
 

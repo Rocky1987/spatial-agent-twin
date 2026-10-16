@@ -13,6 +13,6 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {
     // Stage 4 起，/api 轉給後端
-    proxy: { '/api': 'http://localhost:5000' },
+    proxy: { '/api': 'http://localhost:5000', '/hubs': { target: 'http://localhost:5000', ws: true } },
   },
 })

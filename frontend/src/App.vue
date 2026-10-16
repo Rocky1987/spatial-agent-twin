@@ -74,7 +74,7 @@ const tools = {
 }
 
 // IoT 模擬：超標的空間自動標紅（只在 BIM 窗格已開時；不會自己把窗格彈出來），告警清單一直顯示在地圖右下角
-const { sensors, alerts, spike } = useSensors()
+const { sensors, alerts, spike, connected } = useSensors()
 const spaceZh = (k: string) => spaceMap.spaces.find((s) => s.key === k)?.zh ?? k
 const alertKeys = () => alerts.value.map((a) => a.spaceKey).sort().join(',')
 // 感測器溫度牌：BIM 窗格開著、模型載入後，每次更新都同步到 3D
@@ -107,7 +107,7 @@ async function step(name: keyof typeof tools, ...args: unknown[]) {
       <div class="alerts ui">
         <div class="alerts-head">
           <TriangleAlert class="size-4" :class="alerts.length ? 'text-red-400' : 'text-emerald-400'" />
-          <span class="flex-1">{{ alerts.length ? `告警 ${alerts.length} 處` : '溫度正常' }}</span>
+          <span class="flex-1">{{ !connected ? '感測器連線中…' : alerts.length ? `告警 ${alerts.length} 處` : '溫度正常' }}</span>
           <Button size="sm" title="模擬某個空間溫度飆高（錄影與驗收用）" @click="spike()"><Flame class="size-4" />模擬升溫</Button>
         </div>
         <ul v-if="sensorsOpen" class="alerts-list">
@@ -124,7 +124,7 @@ async function step(name: keyof typeof tools, ...args: unknown[]) {
           </li>
         </ul>
         <div class="alerts-foot">
-          模擬 {{ sensors.length }} 個感測器，每 2 秒回報；達 {{ THRESHOLD }}°C 就告警並標紅，AI 也看得到。
+          後端模擬 {{ sensors.length }} 個感測器，經 SignalR 每 2 秒推播；達 {{ THRESHOLD }}°C 就告警並標紅，AI 也看得到。
           <a @click="sensorsOpen = !sensorsOpen">{{ sensorsOpen ? '收合' : '展開' }}</a>
         </div>
       </div>

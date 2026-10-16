@@ -1,55 +1,56 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
 
-// IoT 溫度模擬：前端自己產生數據（individual-dev 的 fake 方案），不接真實感測器
+// IoT 溫度：後端模擬 10 個感測器，每 2 秒透過 SignalR（/hubs/sensors）把全部讀數推過來
 export const THRESHOLD = 30
-const TICK_MS = 2000
-const BASE = 24
 
-// 約 10 個感測器，各掛在一個空間上（key 對應 space-map.json）
-const SENSOR_SPACES = [
-  'KG-Technikraum-I', 'KG-Technikraum-II', 'KG-Technikraum-III', 'KG-Technikraum-IV',
-  'KG-Labor-K1', 'KG-Labor-K2', 'KG-Labor-K3', 'EG-Labor-I', 'EG-Labor-II', 'KG-Seminarraum',
-]
+export interface Sensor { spaceKey: string; temp: number; since?: string }
 
-export interface Sensor { spaceKey: string; temp: number; heat: number; since?: string }
-
-const clock = () => new Date().toLocaleTimeString('zh-TW', { hour12: false })
+const clock = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString('zh-TW', { hour12: false }) : undefined)
 
 export function useSensors() {
-  const sensors = reactive<Sensor[]>(SENSOR_SPACES.map((spaceKey) => ({ spaceKey, temp: BASE + Math.random() * 2, heat: 0 })))
-  const tick = ref(0)
+  const sensors = reactive<Sensor[]>([])
+  const connected = ref(false)
 
-  // 超過門檻的感測器；since 是第一次超標的時間
+  const conn = new HubConnectionBuilder()
+    .withUrl('/hubs/sensors')
+    .withAutomaticReconnect([0, 1000, 3000, 5000, 10000])
+    .configureLogging(LogLevel.Warning)
+    .build()
+
+  conn.on('readings', (list: { spaceKey: string; temp: number; since: string | null }[]) => {
+    sensors.splice(0, sensors.length, ...list.map((r) => ({ spaceKey: r.spaceKey, temp: r.temp, since: clock(r.since) })))
+  })
+  conn.onreconnecting(() => (connected.value = false))
+  conn.onreconnected(() => (connected.value = true))
+  conn.onclose(() => (connected.value = false))
+
+  // 後端還沒起來時，每 3 秒再試一次
+  let stopped = false
+  async function start() {
+    while (!stopped && conn.state === HubConnectionState.Disconnected) {
+      try {
+        await conn.start()
+        connected.value = true
+      } catch {
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+    }
+  }
+  void start()
+  onBeforeUnmount(() => {
+    stopped = true
+    void conn.stop()
+  })
+
   const alerts = computed(() =>
-    sensors.filter((s) => s.temp >= THRESHOLD).map((s) => ({ spaceKey: s.spaceKey, temp: Math.round(s.temp * 10) / 10, time: s.since })),
+    sensors.filter((s) => s.temp >= THRESHOLD).map((s) => ({ spaceKey: s.spaceKey, temp: s.temp, time: s.since })),
   )
 
-  // 讓某個感測器開始升溫（heat 是剩餘升溫次數）；不指定就隨機挑一個正常的
+  // 請後端讓某個感測器開始升溫（錄影與驗收用）
   function spike(spaceKey?: string) {
-    const cool = sensors.filter((x) => x.temp < THRESHOLD)
-    const s = spaceKey ? sensors.find((x) => x.spaceKey === spaceKey) : cool[Math.floor(Math.random() * cool.length)]
-    if (s) s.heat = 6
+    if (connected.value) void conn.invoke('Spike', spaceKey ?? null)
   }
 
-  function step() {
-    tick.value++
-    for (const s of sensors) {
-      if (s.heat > 0) {
-        s.temp += 1.5 + Math.random()
-        s.heat--
-      } else {
-        // 沒在升溫就慢慢回到常溫，加一點雜訊
-        s.temp += (BASE - s.temp) * 0.25 + (Math.random() - 0.5) * 0.6
-      }
-      if (s.temp >= THRESHOLD) s.since ??= clock()
-      else s.since = undefined
-    }
-    // 偶爾自己發生一次升溫，畫面不會一直平靜
-    if (Math.random() < 0.06 && !sensors.some((s) => s.heat > 0 || s.temp >= THRESHOLD)) spike()
-  }
-
-  const timer = setInterval(step, TICK_MS)
-  onBeforeUnmount(() => clearInterval(timer))
-
-  return { sensors, alerts, spike }
+  return { sensors, alerts, spike, connected }
 }
