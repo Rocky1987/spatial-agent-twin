@@ -1,3 +1,4 @@
 dev.log
 .claude/
 *.log
+.env

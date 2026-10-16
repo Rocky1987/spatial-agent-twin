@@ -21,3 +21,12 @@ cp .env.example .env   # 填入 VITE_CESIUM_ION_TOKEN
 npm ci
 npm run dev
 ```
+
+## Docker Compose 執行
+
+```
+cp .env.example .env   # 填入 ANTHROPIC_API_KEY（必要）與 VITE_CESIUM_ION_TOKEN（選填）
+docker compose up --build
+```
+
+開 http://localhost:8080 。frontend 容器是 nginx，提供靜態檔並把 `/api` 轉給 backend；LLM 金鑰只存在 backend 容器的環境變數，不會進前端 bundle。

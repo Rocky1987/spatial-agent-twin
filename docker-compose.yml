@@ -1,0 +1,21 @@
+# 啟動：docker compose up --build，然後開 http://localhost:8080
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+      # Anthropic__Model: claude-haiku-5-5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN:-}
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
