@@ -4,31 +4,108 @@
 
 **中文** | [English](#english)
 
-用中文對 AI 下指令，畫面就從台灣地圖飛進一棟建築，剖開樓層、找到房間。建築裡模擬的溫度感測器每 2 秒更新一次，超過門檻的房間自動標紅；問 AI「哪裡有告警」，它也答得出來。
+以 3D GIS、BIM 與 IoT 感測資料構成建築設施的數位雙生，並由 AI 擔任操作介面的管理平台原型。
+
+它要驗證的是一套架構，而不是單一功能：城市尺度的地理資訊、建築內部的空間資訊與即時感測狀態，能不能透過同一套空間代號串在一起，讓人在一個畫面裡從城市一路查到房間；以及 AI 能不能在這份結構化的資料上，可靠地替人完成查詢與畫面操作。
 
 ![網頁畫面：左側地圖、右側 BIM 模型、對話窗與感測器面板](docs/images/demo.png)
 
-## 這是什麼
+## 背景：為什麼要做
 
-一棟建築的資料通常分散在不同地方：位置在地圖上，樓層與房間在 BIM 模型裡，溫度在監控系統裡。要回答「三樓的廁所在哪裡」「現在哪個房間過熱」，得在幾套軟體之間切換，還要會操作 3D 檢視器。
+### 設施的資料分散在不同系統
 
-這個專案把三者放進同一個畫面：左邊是台灣的 3D 地圖，右邊是建築內部的 BIM 模型，角落是感測器面板。操作方式是直接用中文說，例如：
+一棟建築或一個園區進入營運後，要管理的資訊分散在三類系統：
 
-- 「帶我去研究所大樓」
-- 「剖切到 2 樓」
-- 「幫我隔離 3 樓的廁所」
-- 「現在哪裡有告警？標出來」
-- 「請帶我看技術機房，並幫我剖切到該樓層」
+- **地理資訊（GIS）**：建物在哪裡、周邊的道路與地形，以及和國家坐標、政府圖資的對應。
+- **建築資訊模型（BIM）**：樓層、空間、構件與設備屬性。多半在設計與施工階段產出，交付後常停留在設計檔，沒有進入日常維運。
+- **建築自動化與 IoT**：溫度、電力、門禁等即時點位，各自在監控軟體裡，畫面上通常只有點位編號。
 
-它的特色：
+現場出狀況時，要回答「在哪裡、是什麼、現在怎樣」，得在幾套系統之間人工對照，再靠熟悉現場的人把點位編號翻成實際位置。
 
-- **用說的就能操作 3D。** 不必會用 BIM 檢視器。一句話可以包含好幾個動作，系統依序執行，每一步都用白話列在對話窗。
-- **從城市到房間。** 先在地圖上飛到目標大樓，再展開建築內部，剖切樓層、隔離房間、標紅。地圖一直留在左邊，兩個窗格可以拖曳調整寬度。
-- **感測資料即時推播。** 後端模擬 10 個溫度感測器，每 2 秒經 SignalR 推給所有開著的畫面；達 30°C 就告警，房間標紅，BIM 裡的溫度牌變紅。
-- **AI 回答的告警和畫面上的是同一份。** 告警清單由後端的感測器狀態提供，不是模型自己猜的。
-- **說錯了可以退回。** 說「回到上一步」可以一路退回最初，說「再往前一步」就取消退回。
-- **台灣的坐標與圖資。** 底圖是國土測繪中心的臺灣通用電子地圖，滑鼠所在位置即時換算成 TWD97 坐標。
-- **一行指令啟動。** 有 Docker 就能跑，LLM 金鑰只放在後端容器，不進前端。
+### 數位雙生的實務作用
+
+數位雙生的價值不在 3D 畫面多精緻，而在把這三類資料放進**同一個空間參考**：每個感測點、設備與事件都知道自己在哪棟、哪層、哪個空間。有了這個共同參考，才做得到：
+
+- **事件應變**：告警直接定位到空間，同時看得到它在哪一層、建物周邊有什麼（出入口、鄰棟、道路）。
+- **維運管理**：依空間查設備與屬性，維修人員不必翻圖說找位置。
+- **空間與能源管理**：以空間為單位彙整用量與使用率，比較樓層或建物之間的差異。
+- **知識留存**：「哪個編號在哪裡」這類現場知識留在模型與對照表裡，不只在資深人員腦中。
+
+本原型只做到第一項的雛形（告警定位到空間），其餘是這個架構往下延伸的方向。
+
+### 為什麼要 3D GIS 搭配 BIM
+
+兩者處理不同的尺度，單獨使用都有缺口：
+
+| | 3D GIS | BIM |
+|---|---|---|
+| 尺度 | 城市、園區、多棟建物 | 單棟建物的內部 |
+| 回答的問題 | 在哪裡？周圍有什麼？怎麼到達？ | 哪一層？哪個空間？哪個構件？ |
+| 資料 | 國家坐標（TWD97）、地形、底圖、3D 建物 | IFC：樓層、空間、構件與屬性 |
+| 單獨使用的缺口 | 看不到建物內部 | 不知道建物在哪、周圍是什麼 |
+
+管理平台需要從城市一路連到房間：先在地圖上找到建物，再進入內部定位樓層與空間。所以本專案的畫面分成兩個窗格，地圖固定在左側，BIM 在右側展開，兩邊同時可見。
+
+### AI 能幫上什麼
+
+3D GIS 與 BIM 平台長期的門檻是操作：要會用 3D 檢視器，還要知道模型裡的樓層命名與空間編號，才找得到想看的東西。實際要用這些資訊的值班人員與管理者，多半不是這類軟體的熟手。
+
+大型語言模型的工具呼叫（tool use）能把自然語言轉成結構化的操作，正好補上這一段：
+
+- 把口語轉成系統認得的參數，例如「二樓」對到模型裡的樓層，「技術機房」對到 4 個空間。
+- 把一句複合需求拆成有順序的多個操作，例如先飛到建物、再剖切樓層、再隔離空間。
+- 用使用者的語言說明系統狀態，例如哪些空間告警、溫度多少。
+
+前提是底下的資料必須結構化。AI 只能在既有的空間、代號與感測狀態中做選擇，語意層越清楚，AI 越不容易出錯。所以在 AI 普及之後，數位雙生多了一個角色：它不只是給人看的 3D 畫面，也是讓 AI 能正確對應現場的**結構化脈絡**。本專案因此讓 AI 只當操作介面，資料、告警判斷與執行保證都由程式負責，見[AI 怎麼介入、扮演什麼角色](#ai-怎麼介入扮演什麼角色)。
+
+## 整體架構
+
+```mermaid
+flowchart LR
+    subgraph SRC["資料來源"]
+        G["地理<br/>國土測繪中心圖資・地形・3D 建物"]
+        B["建築<br/>IFC 模型"]
+        S["狀態<br/>溫度感測器（本原型為模擬）"]
+    end
+    K["語意層：空間對照表<br/>key ↔ IFC GlobalId ↔ 中文名稱"]
+    subgraph VIEW["呈現與管理"]
+        MAP["3D GIS 窗格<br/>城市 → 建物"]
+        BIM["BIM 窗格<br/>樓層 → 空間"]
+        P["感測器面板與告警"]
+    end
+    AI["AI 操作介面<br/>中文 → 工具呼叫"]
+    U(("使用者"))
+    G --> MAP
+    B --> K
+    S --> K
+    K --> BIM
+    K --> P
+    K -->|對照表・告警清單| AI
+    U -->|中文指令| AI
+    AI -->|飛行・剖切・隔離・標示| VIEW
+    U -->|直接操作| VIEW
+```
+
+- **資料來源分三類**：地理、建築、狀態，對應前面說的三類系統。
+- **語意層是中樞**：空間對照表為每個樓層與空間定一個 key，對到 IFC 的 GlobalId 與中文名稱。感測器掛在 key 上，AI 的工具參數也是 key，BIM 再用 key 找到構件。換成真實資料時，只要這一層的介面不變，上下兩邊都不必改。
+- **呈現分成城市與建物兩個尺度**：3D GIS 窗格負責城市到建物，BIM 窗格負責樓層到空間，感測器面板顯示即時狀態。
+- **AI 在最上層**：把中文轉成 8 個封裝好的畫面工具（飛行、剖切、隔離、標示等），不直接改資料，也不碰設備。使用者也可以不經 AI，直接操作地圖、BIM 與面板。
+
+各層的實作方式見[本專案怎麼實現](#本專案怎麼實現)，部署與程式架構見[技術架構](#技術架構)。
+
+### 原型的範圍
+
+這是驗證架構的原型，每一層只做到能檢驗介面的程度：
+
+| 層 | 本原型做到的 | 尚未涵蓋 |
+|---|---|---|
+| 地理 | Cesium 3D 地球，疊國土測繪中心電子地圖、OSM 3D 建物與地形，內政部三維建物（臺北市）為選用圖層；游標位置換算 TWD97 | BIM 尚未錨定到地圖上的實際位置 |
+| 建築 | 瀏覽器直接解析 IFC，可剖切樓層、隔離與標示空間 | 模型是德國 KIT 的公開示範模型，與台灣建築無關 |
+| 語意 | 手寫對照表，5 個樓層、26 個空間 | 由 IFC 自動同步 |
+| 狀態 | 後端模擬 10 個溫度感測器，經 SignalR 每 2 秒推播；達 30°C 由程式告警並標紅 | 真實感測器、歷史資料、資料品質處理 |
+| 互動 | 中文指令轉成畫面操作，依序執行、每一步可退回；AI 回答的告警與畫面是同一份資料 | 回寫控制設備、登入與權限、正確率的自動化評測 |
+
+和工業級、工程級數位雙生的差距，見[工業級精度與本專案規格的差別](#工業級精度與本專案規格的差別)。
 
 > 網頁沒有登入與速率限制，連得到網頁的人都能用你的金鑰呼叫模型。請只在本機展示，不要對外公開。見[已知限制](#已知限制)。
 
@@ -345,7 +422,7 @@ npm run dev
 
 - **BIM 模型：** `AC20-Institute-Var-2.ifc`（IFC4，5 層）與 `AC20-FZK-Haus.ifc`，來源 IAI / KIT（[KIT IFC Examples](https://www.ifcwiki.org/index.php?title=KIT_IFC_Examples)）。
 - **底圖：** 內政部國土測繪中心 WMTS，臺灣通用電子地圖（EMAP）。
-- **3D 建物：** © OpenStreetMap contributors，經 Cesium OSM Buildings。
+- **3D 建物：** © OpenStreetMap contributors，經 Cesium OSM Buildings；選用圖層為內政部國土測繪中心三維建物（3D Tiles）。
 - **地形：** Cesium World Terrain。
 
 ## 授權
@@ -368,29 +445,106 @@ MIT
 
 [中文](#ai-空間智慧數位雙生戰情室)
 
-Give an AI instructions in Chinese and the view flies from a map of Taiwan into a building, cuts open a floor and finds a room. Simulated temperature sensors in the building update every 2 seconds; rooms over the threshold turn red automatically, and the AI can tell you where the alerts are.
+A prototype management platform for a building-facility digital twin, built from 3D GIS, BIM and IoT sensor data, with AI as the operating interface.
 
-### What is this
+It sets out to verify an architecture, not a single feature. Can city-scale geographic data, building-interior spatial data and live sensor state be joined through one set of space identifiers, so that one screen takes you from the city down to a room? And can AI work reliably on top of that structured data to run queries and view operations for people?
 
-A building's data is usually scattered: its location is on a map, its floors and rooms are in a BIM model, its temperatures are in a monitoring system. To answer "where are the third-floor restrooms?" or "which room is overheating right now?", you switch between several tools and need to know how to drive a 3D viewer.
+### Background: why build this
 
-This project puts all three on one screen: a 3D map of Taiwan on the left, the building's BIM model on the right, and a sensor panel in the corner. You operate it by talking in Chinese, for example:
+#### Facility data lives in separate systems
 
-- 「帶我去研究所大樓」 (Take me to the institute building)
-- 「剖切到 2 樓」 (Section at the 2nd floor)
-- 「幫我隔離 3 樓的廁所」 (Isolate the 3rd-floor restrooms)
-- 「現在哪裡有告警？標出來」 (Where are the alerts now? Mark them)
-- 「請帶我看技術機房，並幫我剖切到該樓層」 (Show me the technical rooms and section at that floor)
+Once a building or a campus is in operation, the information needed to run it is spread across three kinds of system:
 
-What makes it different:
+- **Geographic information (GIS)**: where the building is, the roads and terrain around it, and how it maps to national coordinates and government map data.
+- **Building information modelling (BIM)**: floors, spaces, components and equipment attributes. Usually produced during design and construction; after handover it often stays in design files and never enters day-to-day operations.
+- **Building automation and IoT**: live points for temperature, power, access control and so on, each in its own monitoring software, usually shown only as point IDs.
 
-- **Drive 3D by talking.** No BIM viewer skills needed. One sentence can hold several actions; they run in order, and each step is listed in plain words in the chat panel.
-- **From city to room.** Fly to the target building on the map, then open the interior: section a floor, isolate rooms, mark them red. The map stays on the left, and the two panes can be resized by dragging.
-- **Live sensor push.** The backend simulates 10 temperature sensors and pushes them to every open page over SignalR every 2 seconds; at 30°C a room raises an alert, turns red, and its temperature label in the BIM turns red.
-- **The AI's alerts are the ones on screen.** The alert list comes from the backend's sensor state; the model does not guess it.
-- **Undo by saying so.** "回到上一步" (go back) steps back all the way to the start; "再往前一步" (forward) redoes.
-- **Taiwan coordinates and maps.** The base map is the National Land Surveying and Mapping Center's Taiwan e-Map, and the cursor position is converted to TWD97 coordinates live.
-- **One command to start.** Docker alone is enough; the LLM key lives only in the backend container, never in the frontend.
+When something happens on site, answering "where is it, what is it, what state is it in" means cross-checking several systems by hand and relying on someone who knows the site to turn point IDs into real locations.
+
+#### What a digital twin does in practice
+
+The value of a digital twin is not how detailed the 3D view is. It is putting these three kinds of data into **one shared spatial reference**: every sensor point, piece of equipment and event knows which building, floor and space it belongs to. That shared reference is what makes these possible:
+
+- **Incident response**: an alert is located straight to a space, together with its floor and what surrounds the building (entrances, neighbouring buildings, roads).
+- **Operations and maintenance**: look up equipment and attributes by space, so technicians do not dig through drawings to find a location.
+- **Space and energy management**: aggregate usage and occupancy per space, and compare floors or buildings.
+- **Retaining knowledge**: site knowledge such as "which ID is where" lives in the model and the lookup table, not only in senior staff's heads.
+
+This prototype only reaches an early form of the first item (locating an alert to a space); the rest is where the architecture can go next.
+
+#### Why 3D GIS together with BIM
+
+The two handle different scales, and each has a gap on its own:
+
+| | 3D GIS | BIM |
+|---|---|---|
+| Scale | City, campus, many buildings | The inside of one building |
+| Questions it answers | Where is it? What is around it? How do I get there? | Which floor? Which space? Which component? |
+| Data | National coordinates (TWD97), terrain, base maps, 3D buildings | IFC: floors, spaces, components and attributes |
+| Gap when used alone | Cannot see inside buildings | Does not know where the building is or what surrounds it |
+
+A management platform has to connect the city all the way down to the room: find the building on the map, then go inside to locate the floor and the space. That is why this project's screen has two panes: the map stays on the left and the BIM opens on the right, both visible at once.
+
+#### What AI adds
+
+The long-standing barrier to 3D GIS and BIM platforms is operating them: you need to know a 3D viewer, plus the model's floor naming and space numbering, to find what you want. The duty staff and managers who actually need this information are mostly not experienced users of such software.
+
+Tool use in large language models turns natural language into structured operations, which fills exactly that gap:
+
+- Turning everyday speech into parameters the system recognises, e.g. 「二樓」 (2nd floor) to a floor in the model, 「技術機房」 (technical rooms) to 4 spaces.
+- Breaking one compound request into several ordered operations, e.g. fly to the building, then section the floor, then isolate the spaces.
+- Explaining system state in the user's language, e.g. which spaces are alerting and at what temperature.
+
+The precondition is that the data underneath is structured. The AI can only choose among existing spaces, identifiers and sensor states; the clearer the semantic layer, the fewer mistakes it makes. So with AI in wide use, the digital twin takes on an extra role: it is not only a 3D view for people but also the **structured context** that lets AI map requests to the real site correctly. That is why this project keeps the AI to the role of operating interface, while data, alert decisions and execution guarantees stay in code; see [How AI fits in](#how-ai-fits-in).
+
+### Overall architecture
+
+```mermaid
+flowchart LR
+    subgraph SRC["Data sources"]
+        G["Geography<br/>NLSC maps · terrain · 3D buildings"]
+        B["Building<br/>IFC model"]
+        S["State<br/>temperature sensors (simulated here)"]
+    end
+    K["Semantic layer: space lookup table<br/>key ↔ IFC GlobalId ↔ Chinese name"]
+    subgraph VIEW["Presentation and management"]
+        MAP["3D GIS pane<br/>city → building"]
+        BIM["BIM pane<br/>floor → space"]
+        P["Sensor panel and alerts"]
+    end
+    AI["AI operating interface<br/>Chinese → tool calls"]
+    U(("User"))
+    G --> MAP
+    B --> K
+    S --> K
+    K --> BIM
+    K --> P
+    K -->|lookup table · alert list| AI
+    U -->|Chinese instructions| AI
+    AI -->|fly · section · isolate · mark| VIEW
+    U -->|direct operation| VIEW
+```
+
+- **Three kinds of data source**: geography, building and state, matching the three kinds of system above.
+- **The semantic layer is the hub**: the space lookup table gives every floor and space a key, mapped to its IFC GlobalId and Chinese name. Sensors attach to keys, the AI's tool parameters are keys, and the BIM uses the key to find the component. When real data replaces the demo data, nothing above or below has to change as long as this layer's interface stays the same.
+- **Presentation at two scales**: the 3D GIS pane covers city to building, the BIM pane covers floor to space, and the sensor panel shows live state.
+- **AI sits on top**: it turns Chinese into 8 wrapped view tools (fly, section, isolate, mark and so on); it does not change data and does not touch any equipment. Users can also skip the AI and operate the map, BIM and panels directly.
+
+For how each layer is implemented, see [How this project implements it](#how-this-project-implements-it); for deployment and code structure, see [Architecture](#architecture).
+
+#### Prototype scope
+
+This is a prototype for verifying the architecture; each layer goes only as far as needed to test its interfaces:
+
+| Layer | What this prototype does | Not yet covered |
+|---|---|---|
+| Geography | Cesium 3D globe with the NLSC e-Map, OSM 3D buildings and terrain; NLSC 3D buildings (Taipei) as an optional layer; cursor position converted to TWD97 | The BIM is not yet anchored to its real position on the map |
+| Building | IFC parsed directly in the browser; floors can be sectioned and spaces isolated and marked | The model is KIT's public demo model, unrelated to any building in Taiwan |
+| Semantics | Hand-written lookup table: 5 floors, 26 spaces | Automatic sync from the IFC |
+| State | Backend simulates 10 temperature sensors, pushed over SignalR every 2 seconds; at 30°C code raises the alert and marks the space red | Real sensors, history, data-quality handling |
+| Interaction | Chinese instructions turned into view operations, run in order, each step undoable; the AI's alerts and the screen share the same data | Write-back to equipment, login and permissions, automated accuracy evaluation |
+
+For the gap to industrial and engineering-grade digital twins, see [Industrial-grade precision vs. this project](#industrial-grade-precision-vs-this-project).
 
 > The page has no login or rate limiting, so anyone who can reach it can call the model with your key. Demo it locally only; do not expose it publicly. See [Known limitations](#known-limitations).
 
@@ -711,7 +865,7 @@ One sentence each; details are in the [progress log](spatial-twin-guard%20實作
 
 - **BIM models:** `AC20-Institute-Var-2.ifc` (IFC4, 5 floors) and `AC20-FZK-Haus.ifc`, from IAI / KIT ([KIT IFC Examples](https://www.ifcwiki.org/index.php?title=KIT_IFC_Examples)).
 - **Base map:** Taiwan e-Map (EMAP), WMTS from the National Land Surveying and Mapping Center, Ministry of the Interior.
-- **3D buildings:** © OpenStreetMap contributors, via Cesium OSM Buildings.
+- **3D buildings:** © OpenStreetMap contributors, via Cesium OSM Buildings; the optional layer is the NLSC 3D buildings (3D Tiles), Ministry of the Interior.
 - **Terrain:** Cesium World Terrain.
 
 ### License
