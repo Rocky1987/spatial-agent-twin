@@ -5,3 +5,9 @@ dev.log
 
 # 參考用資料，不進版控
 reference/
+
+# 規劃與進度文件，只留本機
+spatial-twin-guard 可行性評估報告.md
+spatial-twin-guard 實作進度.md
+spatial-twin-guard 實作進度（完整版）.md
+gemini-code-1792067684222.md

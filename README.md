@@ -357,8 +357,7 @@ spatial-agent-twin/
 │  ├─ Sensors.cs               感測器模擬與 SignalR hub
 │  ├─ SpaceMap.cs              讀對照表
 │  └─ Dockerfile
-├─ docker-compose.yml
-└─ spatial-twin-guard 實作進度.md
+└─ docker-compose.yml
 ```
 
 ## 本機開發
@@ -387,7 +386,7 @@ npm run dev
 
 ## 驗收狀態
 
-沒有自動化測試與評測，以手動驗收為主。每一步的紀錄見[實作進度](spatial-twin-guard%20實作進度.md)。
+沒有自動化測試與評測，以手動驗收為主。
 
 | 項目 | 狀態 |
 |---|---|
@@ -399,8 +398,6 @@ npm run dev
 | 前端打包產物不含 LLM 金鑰 | 通過 |
 
 ## 已知限制
-
-每條只列一句，細節見[實作進度](spatial-twin-guard%20實作進度.md)。
 
 - **沒有座標錨定。** BIM 在獨立窗格，沒有放進地圖；地圖上的目標大樓是台北一棟 OSM 建物替身，BIM 是德國的示範建築（見[精度差別](#工業級精度與本專案規格的差別)）。
 - **感測資料是模擬的。** 亂數產生，不存歷史，後端重啟就重來。
@@ -800,8 +797,7 @@ spatial-agent-twin/
 │  ├─ Sensors.cs               sensor simulator and SignalR hub
 │  ├─ SpaceMap.cs              reads the lookup table
 │  └─ Dockerfile
-├─ docker-compose.yml
-└─ spatial-twin-guard 實作進度.md   progress log (Chinese)
+└─ docker-compose.yml
 ```
 
 ### Local development
@@ -830,7 +826,7 @@ npm run dev
 
 ### Acceptance status
 
-There are no automated tests or evaluations; acceptance is manual. Every step is logged in the [progress log](spatial-twin-guard%20實作進度.md) (Chinese).
+There are no automated tests or evaluations; acceptance is manual.
 
 | Item | Status |
 |---|---|
@@ -842,8 +838,6 @@ There are no automated tests or evaluations; acceptance is manual. Every step is
 | No LLM key in the frontend build output | Passed |
 
 ### Known limitations
-
-One sentence each; details are in the [progress log](spatial-twin-guard%20實作進度.md) (Chinese).
 
 - **No coordinate anchoring.** The BIM sits in its own pane, not on the map; the target building on the map is an OSM building in Taipei used as a stand-in, and the BIM is a German demo building (see [precision](#industrial-grade-precision-vs-this-project)).
 - **The sensor data is simulated.** Randomly generated, no history, and it starts over when the backend restarts.
