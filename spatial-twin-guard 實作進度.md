@@ -26,7 +26,7 @@
 | 1 | 前端雙畫面：Cesium 台灣底圖 ↔ That Open 載入 IFC | 1–2 | 2 | 1 | 過關 |
 | 2 | 宏觀→微觀轉場：目標大樓高亮、飛行、開啟 BIM 窗格（已改雙視窗） | 0.5–1 | 1 | 約 1 | 過關（預設目標建物待寫死） |
 | 3 | BIM 互動與對照表：剖切樓層、隔離空間、高亮 | 1.5–2.5 | 2.5 | 約 1 | 過關（Institute 載入約 2 秒） |
-| UI | 視覺美化：Tailwind + shadcn-vue | 0.5 | 0.5 | | 未開始 |
+| UI | 視覺美化：Tailwind + shadcn-vue | 0.5 | 0.5 | 約 0.3 | 過關 |
 | 4 | AI 指令：後端 LLM + System Prompt + 工具呼叫 | 1–2 | 2 | | 未開始 |
 | 5 | IoT 告警模擬、5 個情境驗收、Docker Compose 打包 | 1 | 1.5 | | 未開始 |
 | | **合計** | **5–8.5** | **9** | | |
@@ -182,12 +182,14 @@ spatial-twin-guard/
 
 使用者回報原生按鈕與下拉選單太陽春。這一步只換外觀，不動功能與程式結構。
 
-- [ ] 引入 Tailwind CSS（v4 的 Vite 外掛）。先確認 preflight 重置樣式不會弄壞 Cesium 的比例尺與版權列，必要時只套用在自己的元件範圍
-- [ ] 引入 shadcn-vue，只裝會用到的元件（Button、Select、Card，視需要加 Input、Badge），不全裝。它會帶入 reka-ui 等相依套件
-- [ ] 深色主題統一：頂部工具列、BIM 控制面板（樓層與空間選單）、底部資訊列、載入遮罩、左右窗格的標籤與邊框
-- [ ] 導覽按鈕（NavPanel）、分隔條、收合箭頭一併換成同一套樣式
-- [ ] Stage 4 的對話面板、Stage 5 的告警清單沿用同一套元件
-- [ ] 過關：`npm run build` 通過、功能行為與 Stage 3 完全相同、Cesium 控制項顯示正常
+- [x] 引入 Tailwind CSS（v4 的 Vite 外掛）。先確認 preflight 重置樣式不會弄壞 Cesium 的比例尺與版權列，必要時只套用在自己的元件範圍
+- [x] 引入 shadcn-vue，只裝會用到的元件（Button、Select、Card，視需要加 Input、Badge），不全裝。它會帶入 reka-ui 等相依套件
+- [x] 深色主題統一：頂部工具列、BIM 控制面板（樓層與空間選單）、底部資訊列、載入遮罩、左右窗格的標籤與邊框
+- [x] 導覽按鈕（NavPanel）、分隔條、收合箭頭一併換成同一套樣式
+- [x] Stage 4 的對話面板、Stage 5 的告警清單沿用同一套元件
+- [x] 過關：`npm run build` 通過、功能行為與 Stage 3 完全相同、Cesium 控制項顯示正常
+
+**實作結果（2026-10-16）：** Tailwind v4 不引入 preflight（只用 theme 與 utilities），避免影響 Cesium 控制項；shadcn-vue 沒跑 CLI，用 reka-ui 手寫 `Button`、`UiSelect` 放在 `src/components/ui/`（Vue 編譯器無法解析 `VariantProps`，props 改為明確型別）；導覽按鈕改用 lucide 圖示。Stage 4 的對話面板、Stage 5 的告警清單沿用這兩個元件。
 
 **不過關時：** shadcn-vue 與現有樣式衝突難解，就只留 Tailwind，按鈕與選單自己寫幾個小元件。
 

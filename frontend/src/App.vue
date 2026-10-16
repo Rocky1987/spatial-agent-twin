@@ -4,6 +4,9 @@ import spaceMap from './data/space-map.json'
 import CesiumView from './components/CesiumView.vue'
 import BimView from './components/BimView.vue'
 import NavPanel from './components/NavPanel.vue'
+import Button from './components/ui/Button.vue'
+import UiSelect from './components/ui/UiSelect.vue'
+import { ChevronLeft, ChevronRight, Eraser, Layers, MapPinned, Plane, RotateCcw, ScanSearch, X } from 'lucide-vue-next'
 
 // 雙視窗：地圖固定在左邊；split 時右邊展開 BIM 窗格
 const split = ref(false)
@@ -12,6 +15,9 @@ const model = ref('/models/AC20-Institute-Var-2.ifc')
 const pickInfo = ref('')
 const storeyKey = ref(spaceMap.storeys[1].key)
 const spaceKey = ref(spaceMap.spaces[0].key)
+
+const storeyOptions = spaceMap.storeys.map((s) => ({ value: s.key, label: s.zh }))
+const spaceOptions = spaceMap.spaces.map((s) => ({ value: s.key, label: `${s.zh}（${s.name}）` }))
 
 const cesiumRef = ref<InstanceType<typeof CesiumView>>()
 const bimRef = ref<InstanceType<typeof BimView>>()
@@ -65,7 +71,7 @@ const tools = {
 </script>
 
 <template>
-  <div class="stage" :class="{ split }">
+  <div class="stage ui" :class="{ split }">
     <div class="pane pane-map">
       <CesiumView ref="cesiumRef" :active="true" @status="status = $event" />
       <NavPanel @action="cesiumRef?.navigate($event)" />
@@ -77,28 +83,28 @@ const tools = {
       <NavPanel @action="bimRef?.navigate($event)" />
       <div class="tag">建築內部（BIM）</div>
       <div class="bim-tools">
-        <select v-model="storeyKey">
-          <option v-for="s in spaceMap.storeys" :key="s.key" :value="s.key">{{ s.zh }}</option>
-        </select>
-        <button @click="tools.sectionStorey(storeyKey)">剖切樓層</button>
-        <select v-model="spaceKey">
-          <option v-for="s in spaceMap.spaces" :key="s.key" :value="s.key">{{ s.zh }}（{{ s.name }}）</option>
-        </select>
-        <button @click="tools.isolateSpaces([spaceKey])">隔離空間</button>
-        <button @click="tools.highlightSpaces([spaceKey])">標紅</button>
-        <button @click="tools.resetView()">還原</button>
+        <div class="group">
+          <UiSelect v-model="storeyKey" :options="storeyOptions" class="w-28" />
+          <Button size="sm" @click="tools.sectionStorey(storeyKey)"><Layers class="size-4" />剖切樓層</Button>
+        </div>
+        <div class="group">
+          <UiSelect v-model="spaceKey" :options="spaceOptions" class="w-56" />
+          <Button size="sm" @click="tools.isolateSpaces([spaceKey])"><ScanSearch class="size-4" />隔離</Button>
+          <Button size="sm" variant="destructive" @click="tools.highlightSpaces([spaceKey])"><MapPinned class="size-4" />標紅</Button>
+        </div>
+        <Button size="sm" @click="tools.resetView()"><Eraser class="size-4" />還原</Button>
       </div>
       <div class="bim-info">{{ pickInfo || '點選構件可顯示名稱與類別' }}</div>
-      <button class="close" title="關閉 BIM 視窗" @click="split = false">✕</button>
+      <Button class="close" variant="destructive" size="icon" title="關閉 BIM 視窗" @click="split = false"><X class="size-5" /></Button>
     </div>
 
     <button class="edge" :title="split ? '收合 BIM 視窗' : '開啟 BIM 視窗'" @click="split = !split">
-      {{ split ? '▶' : '◀' }}
+      <component :is="split ? ChevronRight : ChevronLeft" class="size-5" />
     </button>
 
     <div class="toolbar">
-      <button @click="flyToLocation('institute')">飛往大樓</button>
-      <button @click="flyToLocation('taiwan')">回到台灣</button>
+      <Button variant="default" @click="flyToLocation('institute')"><Plane class="size-4" />飛往大樓</Button>
+      <Button @click="flyToLocation('taiwan')"><RotateCcw class="size-4" />回到台灣</Button>
       <span class="status">{{ status }}</span>
     </div>
   </div>
@@ -137,7 +143,7 @@ const tools = {
   z-index: 15;
   cursor: col-resize;
   touch-action: none;
-  background: linear-gradient(90deg, #0b1118, #2a3a4f 50%, #0b1118);
+  background: #0b1118;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -148,7 +154,7 @@ const tools = {
   width: 10px;
 }
 .divider:hover {
-  background: linear-gradient(90deg, #0b1118, #4a82c4 50%, #0b1118);
+  background: #1d3a66;
 }
 .divider span {
   width: 4px;
@@ -162,36 +168,29 @@ const tools = {
   right: 0;
   transform: translateY(-50%);
   z-index: 20;
-  width: 22px;
+  display: grid;
+  place-items: center;
+  width: 24px;
   height: 64px;
   cursor: pointer;
   color: #fff;
-  background: rgba(30, 40, 55, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
   border-right: none;
-  border-radius: 8px 0 0 8px;
+  border-radius: 10px 0 0 10px;
+  transition: background 0.15s;
 }
 .edge:hover {
-  background: rgba(60, 80, 110, 0.95);
+  background: rgba(59, 130, 246, 0.85);
 }
 .close {
   position: absolute;
   top: 12px;
   right: 12px;
   z-index: 10;
-  width: 36px;
-  height: 36px;
-  font-size: 16px;
-  cursor: pointer;
-  color: #fff;
-  background: rgba(150, 40, 40, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
 }
-.close:hover {
-  background: rgba(200, 50, 50, 0.95);
-}
- .bim-tools {
+.bim-tools {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -199,37 +198,44 @@ const tools = {
   z-index: 10;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
-.bim-tools button,
-.bim-tools select {
-  padding: 4px 10px;
-  cursor: pointer;
-  max-width: 100%;
+.bim-tools .group {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
 }
 .bim-info {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
   z-index: 10;
-  padding: 8px 12px;
-  font-size: 16px;
-  line-height: 1.4;
+  padding: 10px 14px;
+  font-size: 15px;
+  line-height: 1.5;
   color: #fff;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
   pointer-events: none;
   word-break: break-all;
 }
 .tag {
   position: absolute;
   left: 12px;
-  bottom: 96px;
+  bottom: 84px;
   z-index: 10;
   color: #fff;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 2px 8px;
-  border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 2px 10px;
+  border-radius: 999px;
   font-size: 12px;
   pointer-events: none;
 }
@@ -239,18 +245,16 @@ const tools = {
   left: 12px;
   z-index: 20;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
-}
-.toolbar button {
-  padding: 6px 14px;
-  cursor: pointer;
 }
 .status {
   color: #fff;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 2px 8px;
-  border-radius: 4px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  padding: 4px 12px;
+  border-radius: 999px;
   font-size: 12px;
 }
 </style>

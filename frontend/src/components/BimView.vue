@@ -410,9 +410,10 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   color: #fff;
-  background: rgba(10, 16, 24, 0.75);
+  background: rgba(10, 16, 24, 0.7);
+  backdrop-filter: blur(6px);
   pointer-events: none;
 }
 .loading-label {
@@ -421,15 +422,16 @@ defineExpose({
 }
 .bar {
   width: min(320px, 70%);
-  height: 10px;
+  height: 8px;
   overflow: hidden;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
 }
 .bar i {
   display: block;
   height: 100%;
-  background: #4a9eff;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 4px;
   transition: width 0.2s;
 }
 .bar i.indet {

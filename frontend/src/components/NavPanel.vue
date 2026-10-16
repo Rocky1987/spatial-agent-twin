@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { ChevronDown, ChevronUp, House, Minus, Plus, RotateCcw, RotateCw } from 'lucide-vue-next'
+import type { Component } from 'vue'
+import Button from './ui/Button.vue'
+
 export type NavAction =
   | 'zoomIn' | 'zoomOut'
   | 'rotateLeft' | 'rotateRight'
@@ -7,46 +11,21 @@ export type NavAction =
 
 const emit = defineEmits<{ (e: 'action', a: NavAction): void }>()
 
-const buttons: { a: NavAction; label: string; title: string }[] = [
-  { a: 'zoomIn', label: '＋', title: '放大' },
-  { a: 'zoomOut', label: '－', title: '縮小' },
-  { a: 'rotateLeft', label: '↺', title: '向左旋轉' },
-  { a: 'rotateRight', label: '↻', title: '向右旋轉' },
-  { a: 'tiltUp', label: '▲', title: '視角抬高（更俯視）' },
-  { a: 'tiltDown', label: '▼', title: '視角放低（更平視）' },
-  { a: 'reset', label: '⌂', title: '回到初始視角' },
+const buttons: { a: NavAction; icon: Component; title: string }[] = [
+  { a: 'zoomIn', icon: Plus, title: '放大' },
+  { a: 'zoomOut', icon: Minus, title: '縮小' },
+  { a: 'rotateLeft', icon: RotateCcw, title: '向左旋轉' },
+  { a: 'rotateRight', icon: RotateCw, title: '向右旋轉' },
+  { a: 'tiltUp', icon: ChevronUp, title: '視角抬高（更俯視）' },
+  { a: 'tiltDown', icon: ChevronDown, title: '視角放低（更平視）' },
+  { a: 'reset', icon: House, title: '回到初始視角' },
 ]
 </script>
 
 <template>
-  <div class="nav-panel">
-    <button v-for="b in buttons" :key="b.a" :title="b.title" @click="emit('action', b.a)">
-      {{ b.label }}
-    </button>
+  <div class="ui absolute right-3 top-[60px] z-10 flex flex-col gap-1 rounded-xl border border-solid border-[var(--line)] bg-[var(--panel)] p-1 backdrop-blur">
+    <Button v-for="b in buttons" :key="b.a" variant="ghost" size="icon" :title="b.title" @click="emit('action', b.a)">
+      <component :is="b.icon" class="size-5" />
+    </Button>
   </div>
 </template>
-
-<style scoped>
-.nav-panel {
-  position: absolute;
-  top: 60px;
-  right: 12px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.nav-panel button {
-  width: 36px;
-  height: 36px;
-  font-size: 18px;
-  cursor: pointer;
-  color: #fff;
-  background: rgba(30, 40, 55, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-}
-.nav-panel button:hover {
-  background: rgba(60, 80, 110, 0.9);
-}
-</style>
