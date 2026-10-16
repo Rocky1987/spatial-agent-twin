@@ -14,6 +14,8 @@ import {
   Ion,
   Math as CesiumMath,
   Matrix4,
+  HeightReference,
+  Terrain,
   OpenStreetMapImageryProvider,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
@@ -76,6 +78,8 @@ onMounted(async () => {
 
   const v = new Viewer(container.value!, {
     baseLayer: false,
+    // Cesium World Terrain；失敗時維持平面橢球，其餘功能不受影響
+    terrain: Terrain.fromWorldTerrain(),
     baseLayerPicker: false,
     geocoder: false,
     homeButton: false,
@@ -165,7 +169,7 @@ function applyTarget(v: Viewer) {
   // 一律放標記；有 elementId 且 OSM 載入時，再把建物染色
   v.entities.add({
     position: Cartesian3.fromDegrees(target.lon, target.lat, 0),
-    point: { pixelSize: 12, color: Color.RED, outlineColor: Color.WHITE, outlineWidth: 2 },
+    point: { heightReference: HeightReference.CLAMP_TO_GROUND, pixelSize: 12, color: Color.RED, outlineColor: Color.WHITE, outlineWidth: 2 },
   })
   if (osm) {
     osm.style = new Cesium3DTileStyle({
