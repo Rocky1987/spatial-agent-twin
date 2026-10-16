@@ -27,8 +27,8 @@
 | 2 | 宏觀→微觀轉場：目標大樓高亮、飛行、開啟 BIM 窗格（已改雙視窗） | 0.5–1 | 1 | 約 1 | 過關（預設目標建物待寫死） |
 | 3 | BIM 互動與對照表：剖切樓層、隔離空間、高亮 | 1.5–2.5 | 2.5 | 約 1 | 過關（Institute 載入約 2 秒） |
 | UI | 視覺美化：Tailwind + shadcn-vue | 0.5 | 0.5 | 約 0.3 | 過關 |
-| 4 | AI 指令：後端 LLM + System Prompt + 工具呼叫 | 1–2 | 2 | | 未開始 |
-| 5 | IoT 告警模擬、5 個情境驗收、Docker Compose 打包 | 1 | 1.5 | | 未開始 |
+| 4 | AI 指令：後端 LLM + System Prompt + 工具呼叫 | 1–2 | 2 | | 過關（情境 1、2、3、5） |
+| 5 | IoT 告警模擬、5 個情境驗收、Docker Compose 打包 | 1 | 1.5 | | 進行中（IoT、Compose 完成；待驗收與錄影） |
 | | **合計** | **5–8.5** | **9** | | |
 
 - **Stage 1–3 是畫面部分，合計 3–5.5 人日，跟「3–5 天看到完整視覺成果」大致吻合。** 5 個 Stage 全部在 3–5 天內做完，前提是 Stage 1 的套件設定沒有卡關。
@@ -204,13 +204,13 @@ spatial-twin-guard/
 
 - [x] **4-1 後端**
   - [x] `dotnet new web -o backend`（Minimal API，.NET 9；使用者的 Visual Studio 不支援 .NET 10），只開一支 `POST /api/chat`
-  - [x] 請求內容是對話紀錄，加上目前的告警清單（Stage 5 才有）
+  - [x] 請求內容是對話紀錄；告警清單由後端的感測器狀態附上（Stage 5）
   - [x] 回應格式是 `{ reply, toolCalls: [{ name, args }] }`，不串流
   - [x] LLM 金鑰用 `dotnet user-secrets` 或環境變數保管，不放進前端
   - [x] 在前端的 `vite.config.ts` 設 `server.proxy`，把 `/api` 轉到本機後端，開發時不用處理 CORS
 - [x] **4-2 System Prompt 與工具定義**
   - [x] System Prompt 包含三部分：角色與規則、`space-map.json` 全文、樓層換算說明（例如台灣的 2 樓是 1. Obergeschoss）
-  - [x] 工具對應 Stage 2、3 的前端函式：`flyToLocation`、`sectionStorey`、`isolateSpaces`、`highlightSpaces`、`resetView`，另加 `undo`、`redo`（`showAlerts` 留到 Stage 5）
+  - [x] 工具對應 Stage 2、3 的前端函式：`flyToLocation`、`sectionStorey`、`isolateSpaces`、`highlightSpaces`、`resetView`，另加 `undo`、`redo`（`showAlerts` 在 Stage 5 加入）
   - [x] 工具參數用對照表的 `key`，並在工具的 JSON Schema 裡列成 `enum`。這樣模型只能從清單裡選，不會編出不存在的 ID，也不必照抄 22 字元的 `globalId`
   - [x] ~~後端把 `key` 換成 `globalId`~~ 略過：前端本來就用 `key` 操作，後端直接回傳 `key`
   - [x] 只做單輪：前端執行完工具後，不必把結果送回模型。一句複合指令，由模型一次回傳多個工具呼叫
@@ -236,24 +236,35 @@ spatial-twin-guard/
 
 ## Stage 5 IoT 告警與打包（1 人日，限時 1.5）
 
-- [ ] **5-1 IoT 模擬（前端）**
-  - [ ] 約 10 個感測器掛在對照表的空間上，每 1–2 秒產生一次溫度
-  - [ ] 溫度超過門檻，就用 `highlightSpaces` 標紅，並在畫面角落列出告警清單
-  - [ ] 送出對話時附上目前的告警清單，模型才答得出「哪裡有告警」
-- [ ] **5-2 Docker Compose**
-  - [ ] `frontend`：用 multi-stage Dockerfile，以 Node 打包出靜態檔
-  - [ ] `backend`：ASP.NET Core 執行映像，LLM 金鑰從環境變數或 `.env` 讀取
-  - [ ] `nginx`：唯一對外入口。`/` 提供前端靜態檔（SPA 回退用 `try_files $uri $uri/ /index.html`），`/api/` 轉給 backend
-  - [ ] 確認 `.wasm` 回應的 Content-Type 是 `application/wasm`
-  - [ ] `docker compose up -d` 一次全部啟動，從 Nginx 的網址跑完 5 個情境
+- [x] **5-1 IoT 模擬**（原訂放前端；後來改成後端模擬、SignalR 推播，比較擬真）
+  - [x] 約 10 個感測器掛在對照表的空間上，每 2 秒產生一次溫度
+  - [x] 溫度超過門檻（30°C），就把該空間標紅，並在畫面角落列出告警清單
+  - [x] 模型答得出「哪裡有告警」（告警清單由後端自己的感測器狀態提供）
+  - [x] `showAlerts` 工具：隔離並標紅所有告警空間、相機對準（情境 4）
+- [x] **5-2 Docker Compose**
+  - [x] `frontend`：multi-stage Dockerfile，以 Node 打包靜態檔，放進 nginx 映像
+  - [x] `backend`：ASP.NET Core 執行映像，LLM 金鑰從 `.env` 讀取（不進版控）
+  - [x] `nginx`：唯一對外入口（`http://localhost:8080`）。`/` 提供靜態檔（SPA 回退），`/api/` 與 `/hubs/`（WebSocket）轉給 backend
+  - [x] 確認 `.wasm` 回應的 Content-Type 是 `application/wasm`
+  - [x] `docker compose up --build -d` 一次全部啟動
 - [ ] **5-3 錄影：** 5 個情境各錄一段
 
-前端的打包產物也可以直接複製進 nginx 映像。這樣實際只跑 nginx 與 backend 兩個容器，設定更少。
+實際只跑 nginx（內含前端靜態檔）與 backend 兩個容器。
+
+**實作結果（2026-10-16）**
+
+- **感測器**：後端 `Sensors.cs` 的背景服務模擬 10 個感測器（技術室 I–IV、實驗室、研討室），平常約 24°C，偶爾自己升溫；畫面上的「模擬升溫」按鈕呼叫 hub 的 `Spike`，錄影與驗收用。
+- **推播**：SignalR hub `/hubs/sensors`，每 2 秒推全部讀數；剛連上先給一份快照；前端自動重連，後端未起來時每 3 秒重試。
+- **呈現**：地圖右下角的感測器面板（全部列出，溫度條帶 30°C 門檻線，點一列可隔離該空間）；BIM 內每個空間中央有 3D 溫度牌（綠＝正常、紅＝超標，穿牆可見）。
+- **自動標紅只上色**（`markSpaces`），不動相機也不改可見性；只有 AI 的 `showAlerts` 才會隔離並對準。曾因為告警解除時自動還原視圖，相機被拉回整棟樓上方只剩屋頂，改成只清標記。
+- **隔離加剖切**：`isolateSpaces` 會在房間頂部多剖一刀，避免樓上構件蓋住視野。
+- **Compose 測試**：wasm 為 `application/wasm`，worker 為 `text/javascript`；經 nginx 的 `/api/chat` 與 SignalR WebSocket 都通；前端靜態檔搜不到 `sk-ant`、`x-api-key` 與實際金鑰字串。
+- **已知限制**：自動標紅不算 undo 的一步，undo 後紅色標記可能暫時消失；剖切到下層時，上層感測器的牌子仍浮在空中；牌子尺寸固定。
 
 **過關檢查**
 
 - [ ] 在 Compose 版本上，5 個展示情境全部成功
-- [ ] 前端打包產物裡搜不到 LLM 金鑰（Cesium ion token 本來就放在前端，不在此限）
+- [x] 前端打包產物裡搜不到 LLM 金鑰（Cesium ion token 本來就放在前端，不在此限）
 
 ## 5 個展示情境
 
@@ -273,6 +284,7 @@ spatial-twin-guard/
 
 | 日期 | Stage | 降級內容 | 原因 |
 | --- | --- | --- | --- |
+| 2026-10-16 | 5 | IoT 模擬由「前端假資料」改成「後端模擬 + SignalR 推播」 | 使用者要求更擬真；不算降級，是提早做了原本暫緩的 SignalR |
 | 2026-10-16 | 2 | 「疊在一起淡入切換」改成雙視窗（地圖在左、BIM 窗格在右，可拖曳、可收合） | 使用者覺得切換到另一個畫面看 BIM 不方便，地圖應該留在原頁面；函式介面不變，不算降級 |
 
 ## MVP 之後（暫緩）
