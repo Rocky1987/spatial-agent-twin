@@ -2,3 +2,6 @@ dev.log
 .claude/
 *.log
 .env
+
+# 參考用資料，不進版控
+reference/
