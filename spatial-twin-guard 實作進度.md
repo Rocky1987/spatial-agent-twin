@@ -93,7 +93,7 @@ spatial-twin-guard/
 
 - [x] 在台灣選一棟 OSM 建物，當作研究所大樓的替身。模型本身在德國，也沒有地理參考，所以不做座標錨定。點選建物（`scene.pick`），記下它的經緯度與 `elementId`
   - 點選後存在 `localStorage`（`stg.target`）；目前選定的建物：`elementId=298062721`，經緯度 121.56508, 25.05013
-  - [ ] 把這棟寫成程式裡的預設值（目前預設是台北 101 一帶的座標，沒有 `elementId`；全新 clone 或 Docker 使用者看不到高亮）
+  - [x] 把這棟寫成程式裡的預設值（目前預設是台北 101 一帶的座標，沒有 `elementId`；全新 clone 或 Docker 使用者看不到高亮）
 - [x] 載入 Cesium OSM Buildings（`createOsmBuildingsAsync`），用 `Cesium3DTileStyle` 讓目標大樓以醒目的顏色顯示（紅色）
 - [x] `flyToLocation('institute')`：飛到大樓上空斜視（`flyToBoundingSphere`，3 秒），飛行完成時展開 BIM 窗格
 - [x] `flyToLocation('taiwan')`：收合 BIM 窗格，相機拉回台灣全景（`flyTo`，2.5 秒）
@@ -177,6 +177,13 @@ spatial-twin-guard/
 - [x] Institute 載入 ≤ 15 秒。超過的話，改成預先轉成 Fragments 檔（That Open 自己的格式）再載入
 
 **不過關時：** 剖切面做不好，就只隱藏上方樓層，降級成「只顯示單一樓層」。空間色塊顯示不出來，就改成隔離該樓層，並在房間位置放文字標籤。
+
+## 地圖建物資訊卡（2026-10-16，UI 美化後追加）
+
+- [x] 預設目標建物寫死為 121.62602, 25.03834（elementId 344947612）
+- [x] 點選 OSM 建物彈出資訊卡（名稱、類型、高度、地址、elementId、經緯度、TWD97）；卡片錨在建物的世界座標，相機移動時跟著走，帶箭頭指向建物，右側放不下就換左側；按「設為目標建物」才改選目標，不再是點了就改
+- [x] 被選建物加淡藍外框（Cesium 後處理輪廓）。踩到的坑：邊緣偵測階段必須包進 `createSilhouetteStage` 才會只描選中的物件，單獨加入會讓整個畫面變色；`length` 調太大（0.6）外框反而消失
+- 已知限制：外框粗細有上限，光暈感做不出來。若要更強，改用 Bloom 後處理或疊一層略放大的半透明模型（暫緩）；建物轉到地球背面時資訊卡不會自動隱藏
 
 ## UI 美化（插在 Stage 3 與 Stage 4 之間，限時 0.5 人日）
 

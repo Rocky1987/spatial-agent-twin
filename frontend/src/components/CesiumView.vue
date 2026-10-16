@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   BoundingSphere,
   EllipsoidGeodesic,
@@ -17,22 +17,25 @@ import {
   HeightReference,
   Terrain,
   OpenStreetMapImageryProvider,
+  PostProcessStageLibrary,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   Viewer,
   WebMapTileServiceImageryProvider,
 } from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
+import { X } from 'lucide-vue-next'
+import Button from './ui/Button.vue'
 import type { NavAction } from './NavPanel.vue'
 import { toTwd97 } from '../utils/twd97'
 
 const props = defineProps<{ active: boolean }>()
 const emit = defineEmits<{ (e: 'status', msg: string): void }>()
 
-// 研究所大樓的替身：預設台北 101 一帶；在地圖上點選建物可改選，結果存在 localStorage
+// 研究所大樓的替身：預設是 121.62602, 25.03834（elementId 344947612）；在地圖上點選建物、按「設為目標」可改選，結果存在 localStorage
 type Target = { lon: number; lat: number; elementId?: number | string }
 const TARGET_KEY = 'stg.target'
-const DEFAULT_TARGET: Target = { lon: 121.5645, lat: 25.034 }
+const DEFAULT_TARGET: Target = { lon: 121.62602, lat: 25.03834, elementId: 344947612 }
 function loadTarget(): Target {
   try {
     const t = JSON.parse(localStorage.getItem(TARGET_KEY) ?? 'null')
@@ -51,6 +54,36 @@ const viewer = shallowRef<Viewer>()
 const scale = ref({ px: 0, label: '', ratio: 0 })
 // 滑鼠所在位置的座標（顯示在底部資訊列）
 const cursor = ref<{ x: number; y: number; lon: number; lat: number } | null>(null)
+// 點選建物的資訊卡：錨在建物上的世界座標，相機移動時跟著走；按 ✕ 或點空白處才收起
+type Popup = { x: number; y: number; world: Cartesian3; rows: [string, string][]; target: Target }
+const popup = ref<Popup | null>(null)
+// 被選中建物的淡藍外框（後處理輪廓）；popup 收起時清掉
+// 多層疊加：由外往內，寬而淡的藍當光暈，窄而亮的青白色當亮邊
+let silhouettes: ReturnType<typeof PostProcessStageLibrary.createEdgeDetectionStage>[] = []
+function setSelected(f: Cesium3DTileFeature | null) {
+  const v = viewer.value
+  if (!v) return
+  if (!silhouettes.length) {
+    const mk = (css: string, length: number) => {
+      const st = PostProcessStageLibrary.createEdgeDetectionStage()
+      st.uniforms.color = Color.fromCssColorString(css)
+      st.uniforms.length = length
+      return st
+    }
+    silhouettes = [
+      mk('#0369a1', 0.16),
+      mk('#0ea5e9', 0.11),
+      mk('#7dd3fc', 0.07),
+      mk('#e0faff', 0.035),
+    ]
+    // 邊緣偵測階段必須包進輪廓合成階段才會只描 selected 的物件
+    v.scene.postProcessStages.add(PostProcessStageLibrary.createSilhouetteStage(silhouettes))
+  }
+  silhouettes.forEach((st) => (st.selected = f ? [f] : []))
+  v.scene.requestRender()
+}
+watch(() => popup.value === null, (closed) => { if (closed) setSelected(null) })
+
 const NICE = [1, 2, 5]
 function updateScale(v: Viewer) {
   const cv = v.scene.canvas
@@ -138,20 +171,36 @@ onMounted(async () => {
   applyTarget(v)
   // 窗格寬度改變時，要求重繪（requestRenderMode 不會自己重畫）
   new ResizeObserver(() => v.scene.requestRender()).observe(container.value!)
+  v.scene.postRender.addEventListener(() => {
+    const p = popup.value
+    if (!p) return
+    const w = v.scene.cartesianToCanvasCoordinates(p.world)
+    if (w && (w.x !== p.x || w.y !== p.y)) popup.value = { ...p, x: w.x, y: w.y }
+  })
   new ScreenSpaceEventHandler(v.scene.canvas).setInputAction((e: { position: Cartesian2 }) => {
     const picked = v.scene.pick(e.position)
     const pos = v.scene.pickPosition(e.position)
-    if (!(picked instanceof Cesium3DTileFeature) || !pos) return
+    if (!(picked instanceof Cesium3DTileFeature) || !pos) { popup.value = null; return }
     const c = Cartographic.fromCartesian(pos)
-    target = {
-      lon: CesiumMath.toDegrees(c.longitude),
-      lat: CesiumMath.toDegrees(c.latitude),
-      elementId: picked.getProperty('elementId'),
+    const lon = CesiumMath.toDegrees(c.longitude)
+    const lat = CesiumMath.toDegrees(c.latitude)
+    const prop = (k: string) => {
+      const val = picked.getProperty(k)
+      return val === undefined || val === null || val === '' ? undefined : String(val)
     }
-    try { localStorage.setItem(TARGET_KEY, JSON.stringify(target)) } catch { /* 忽略 */ }
-    console.info('目標建物', target)
-    emit('status', `目標建物：${target.lon.toFixed(5)}, ${target.lat.toFixed(5)}, elementId=${target.elementId}`)
-    applyTarget(v)
+    const addr = [prop('addr:city'), prop('addr:street'), prop('addr:housenumber')].filter(Boolean).join(' ')
+    const h = prop('height') ?? prop('cesium#estimatedHeight')
+    const rows: [string, string][] = [
+      ['名稱', prop('name') ?? '（OSM 未命名）'],
+      ['類型', prop('building') ?? '—'],
+      ['高度', h ? `${Number(h).toFixed(1)} m` : '—'],
+      ['地址', addr || '—'],
+      ['elementId', prop('elementId') ?? '—'],
+      ['經緯度', `${lon.toFixed(5)}, ${lat.toFixed(5)}`],
+      ['TWD97', (({ x, y }) => `${Math.round(x)}, ${Math.round(y)}`)(toTwd97(lon, lat))],
+    ]
+    setSelected(picked)
+    popup.value = { x: e.position.x, y: e.position.y, world: pos, rows, target: { lon, lat, elementId: picked.getProperty('elementId') } }
   }, ScreenSpaceEventType.LEFT_CLICK)
 
   try {
@@ -163,6 +212,38 @@ onMounted(async () => {
     emit('status', 'OSM Buildings 載入失敗，改用標記點')
   }
 })
+
+// 資訊卡放在錨點右側；右側放不下就改放左側，並用箭頭指向錨點
+const CARD_W = 256
+const CARD_H = 290
+const cardSide = computed(() => {
+  const p = popup.value
+  const w = container.value?.clientWidth ?? 800
+  return p && p.x + 20 + CARD_W > w ? 'right' : 'left'
+})
+const cardTop = computed(() => {
+  const p = popup.value
+  const h = container.value?.clientHeight ?? 600
+  return p ? Math.min(Math.max(8, p.y - 40), Math.max(8, h - CARD_H)) : 0
+})
+const arrowTop = computed(() => Math.min(CARD_H - 40, Math.max(14, (popup.value?.y ?? 0) - cardTop.value - 8)))
+const cardStyle = computed(() => {
+  const p = popup.value
+  if (!p) return {}
+  const left = cardSide.value === 'left' ? p.x + 16 : p.x - 16 - CARD_W
+  return { left: left + 'px', top: cardTop.value + 'px' }
+})
+
+function setTargetFromPopup() {
+  const v = viewer.value
+  if (!v || !popup.value) return
+  target = popup.value.target
+  try { localStorage.setItem(TARGET_KEY, JSON.stringify(target)) } catch { /* 忽略 */ }
+  console.info('目標建物', target)
+  emit('status', `目標建物：${target.lon.toFixed(5)}, ${target.lat.toFixed(5)}, elementId=${target.elementId}`)
+  popup.value = null
+  applyTarget(v)
+}
 
 function applyTarget(v: Viewer) {
   v.entities.removeAll()
@@ -265,6 +346,24 @@ void props
       <span>{{ scale.label }}</span>
       <i :style="{ width: scale.px + 'px' }" />
     </div>
+    <div
+      v-if="popup"
+      class="ui absolute z-20 w-64 rounded-xl border border-solid border-[var(--line)] bg-[var(--panel-solid)]/95 p-3 text-sm text-white shadow-xl backdrop-blur"
+      :style="cardStyle"
+    >
+      <i class="arrow" :class="cardSide" :style="{ top: arrowTop + 'px' }" />
+      <div class="mb-2 flex items-center justify-between font-semibold">
+        建物資訊
+        <Button variant="ghost" size="icon" class="-mr-2 -mt-1 size-7" @click="popup = null"><X class="size-4" /></Button>
+      </div>
+      <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <template v-for="[k, val] in popup.rows" :key="k">
+          <dt class="opacity-60">{{ k }}</dt>
+          <dd class="m-0 break-all">{{ val }}</dd>
+        </template>
+      </dl>
+      <Button variant="default" size="sm" class="mt-3 w-full" @click="setTargetFromPopup">設為目標建物</Button>
+    </div>
     <div class="credit">
       <span>圖資來源：內政部國土測繪中心 ©OpenStreetMap contributors</span>
       <span v-if="scale.ratio">比例尺：{{ scale.ratio.toLocaleString() }}</span>
@@ -276,6 +375,24 @@ void props
 </template>
 
 <style scoped>
+.arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  transform: rotate(45deg);
+}
+.arrow.left {
+  left: -8px;
+  border-right: none;
+  border-top: none;
+}
+.arrow.right {
+  right: -8px;
+  border-left: none;
+  border-bottom: none;
+}
 .cesium-wrap,
 .cesium-container {
   width: 100%;
