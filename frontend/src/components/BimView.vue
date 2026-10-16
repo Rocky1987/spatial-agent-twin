@@ -318,6 +318,15 @@ async function highlightSpaces(refs: string[], color = '#ff3b30') {
 // ---- Stage 5：感測器標籤（飄在各空間中央的溫度牌，穿牆可見） ----
 const sprites = new Map<string, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture }>()
 let spritesInit: Promise<void> | undefined
+// 背景：渲染器是透明的，底色由 CSS 漸層決定；預設淺色天空，深色模型（或想要夜間感）可切回深色
+const bgLight = ref(true)
+// 圖層開關：IoT 溫度牌預設顯示；關掉只是隱藏，資料與告警標紅照常更新
+const iotOn = ref(true)
+function toggleIot() {
+  iotOn.value = !iotOn.value
+  for (const { sprite } of sprites.values()) sprite.visible = iotOn.value
+  refresh()
+}
 async function initSprites(keys: string[]) {
   for (const key of keys) {
     const id = spaceLocal.get(key)
@@ -330,6 +339,7 @@ async function initSprites(keys: string[]) {
     tex.colorSpace = THREE.SRGBColorSpace
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
     sprite.renderOrder = 999
+    sprite.visible = iotOn.value
     sprite.scale.set(5, 2.5, 1)
     sprite.position.set((box.min.x + box.max.x) / 2, box.min.y + (box.max.y - box.min.y) * 0.5, (box.min.z + box.max.z) / 2)
     world.value!.scene.three.add(sprite)
@@ -458,7 +468,18 @@ defineExpose({
 
 <template>
   <div class="bim-wrap">
-    <div ref="container" class="bim-container" />
+    <div ref="container" class="bim-container" :class="{ light: bgLight }" />
+    <div class="ui absolute right-[64px] top-[60px] z-10 rounded-xl border border-solid border-[var(--line)] bg-[var(--panel)] px-3 py-2 text-sm text-white backdrop-blur">
+      <div class="mb-1 font-semibold">圖層</div>
+      <label class="flex cursor-pointer items-center gap-2 py-0.5">
+        <input v-model="bgLight" type="checkbox" />
+        淺色背景
+      </label>
+      <label class="flex cursor-pointer items-center gap-2 py-0.5">
+        <input type="checkbox" :checked="iotOn" @change="toggleIot" />
+        IoT 溫度
+      </label>
+    </div>
     <div v-if="loading" class="loading">
       <div class="loading-label">{{ loading.label }}</div>
       <div class="bar"><i :class="{ indet: loading.pct === null }" :style="loading.pct === null ? undefined : { width: loading.pct + '%' }" /></div>
@@ -523,5 +544,9 @@ defineExpose({
   height: 100%;
   position: relative;
   background: linear-gradient(#1b2a3a, #0d141c);
+}
+/* 淺色：上方天空藍、下方偏暖的地面灰，建物（白灰）與紅色標記都看得清楚 */
+.bim-container.light {
+  background: linear-gradient(#cfe3f5 0%, #e9eff5 55%, #c9ccd0 100%);
 }
 </style>
