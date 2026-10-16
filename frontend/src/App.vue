@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import spaceMap from './data/space-map.json'
 import CesiumView from './components/CesiumView.vue'
 import BimView from './components/BimView.vue'
 import NavPanel from './components/NavPanel.vue'
@@ -7,7 +8,10 @@ import NavPanel from './components/NavPanel.vue'
 // 雙視窗：地圖固定在左邊；split 時右邊展開 BIM 窗格
 const split = ref(false)
 const status = ref('')
-const model = ref('/models/AC20-FZK-Haus.ifc')
+const model = ref('/models/AC20-Institute-Var-2.ifc')
+const pickInfo = ref('')
+const storeyKey = ref(spaceMap.storeys[1].key)
+const spaceKey = ref(spaceMap.spaces[0].key)
 
 const cesiumRef = ref<InstanceType<typeof CesiumView>>()
 const bimRef = ref<InstanceType<typeof BimView>>()
@@ -31,17 +35,32 @@ function dragStart(e: PointerEvent) {
 const FADE_MS = 700
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-// Stage 4 的工具：每個都回傳 Promise，轉場完成才結束
+// 展開 BIM 窗格並等模型載入完成；使用者可能已把窗格收合，所以每個 BIM 工具都先呼叫它
+async function openBim() {
+  if (!split.value) {
+    split.value = true
+    await sleep(FADE_MS)
+  }
+  await bimRef.value?.ensureLoaded()
+}
+
+// Stage 4 的工具：每個都回傳 Promise，轉場完成才結束；除錯按鈕與 AI 的 toolCalls 都走這一組
 async function flyToLocation(place: 'institute' | 'taiwan') {
   if (place === 'institute') {
     await cesiumRef.value?.flyToTarget()
-    split.value = true
-    await sleep(FADE_MS)
+    await openBim()
   } else {
     split.value = false
     await sleep(FADE_MS)
     await cesiumRef.value?.flyHome()
   }
+}
+const tools = {
+  flyToLocation,
+  async sectionStorey(key: string) { await openBim(); await bimRef.value?.sectionStorey(key) },
+  async isolateSpaces(keys: string[]) { await openBim(); await bimRef.value?.isolateSpaces(keys) },
+  async highlightSpaces(keys: string[], color?: string) { await openBim(); await bimRef.value?.highlightSpaces(keys, color) },
+  async resetView() { await openBim(); await bimRef.value?.resetView() },
 }
 </script>
 
@@ -54,9 +73,22 @@ async function flyToLocation(place: 'institute' | 'taiwan') {
     </div>
     <div class="divider" title="拖曳調整視窗大小" @pointerdown="dragStart"><span /></div>
     <div class="pane pane-bim" :style="{ '--bim-w': bimPct + '%' }">
-      <BimView ref="bimRef" :active="split" :model-url="model" @status="status = $event" />
+      <BimView ref="bimRef" :active="split" :model-url="model" @status="status = $event" @pick="pickInfo = $event" />
       <NavPanel @action="bimRef?.navigate($event)" />
       <div class="tag">建築內部（BIM）</div>
+      <div class="bim-tools">
+        <select v-model="storeyKey">
+          <option v-for="s in spaceMap.storeys" :key="s.key" :value="s.key">{{ s.zh }}</option>
+        </select>
+        <button @click="tools.sectionStorey(storeyKey)">剖切樓層</button>
+        <select v-model="spaceKey">
+          <option v-for="s in spaceMap.spaces" :key="s.key" :value="s.key">{{ s.zh }}（{{ s.name }}）</option>
+        </select>
+        <button @click="tools.isolateSpaces([spaceKey])">隔離空間</button>
+        <button @click="tools.highlightSpaces([spaceKey])">標紅</button>
+        <button @click="tools.resetView()">還原</button>
+      </div>
+      <div class="bim-info">{{ pickInfo || '點選構件可顯示名稱與類別' }}</div>
       <button class="close" title="關閉 BIM 視窗" @click="split = false">✕</button>
     </div>
 
@@ -158,6 +190,36 @@ async function flyToLocation(place: 'institute' | 'taiwan') {
 }
 .close:hover {
   background: rgba(200, 50, 50, 0.95);
+}
+ .bim-tools {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 60px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bim-tools button,
+.bim-tools select {
+  padding: 4px 10px;
+  cursor: pointer;
+  max-width: 100%;
+}
+.bim-info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: 8px 12px;
+  font-size: 16px;
+  line-height: 1.4;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  word-break: break-all;
 }
 .tag {
   position: absolute;

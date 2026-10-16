@@ -23,9 +23,10 @@
 
 | Stage | 內容 | 估計（人日） | 限時 | 實際 | 狀態 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 前端雙畫面：Cesium 台灣底圖 ↔ That Open 載入 IFC | 1–2 | 2 | 1 | 過關（Institute 載入秒數待補） |
+| 1 | 前端雙畫面：Cesium 台灣底圖 ↔ That Open 載入 IFC | 1–2 | 2 | 1 | 過關 |
 | 2 | 宏觀→微觀轉場：目標大樓高亮、飛行、開啟 BIM 窗格（已改雙視窗） | 0.5–1 | 1 | 約 1 | 過關（預設目標建物待寫死） |
-| 3 | BIM 互動與對照表：剖切樓層、隔離空間、高亮 | 1.5–2.5 | 2.5 | | 未開始 |
+| 3 | BIM 互動與對照表：剖切樓層、隔離空間、高亮 | 1.5–2.5 | 2.5 | 約 1 | 過關（Institute 載入約 2 秒） |
+| UI | 視覺美化：Tailwind + shadcn-vue | 0.5 | 0.5 | | 未開始 |
 | 4 | AI 指令：後端 LLM + System Prompt + 工具呼叫 | 1–2 | 2 | | 未開始 |
 | 5 | IoT 告警模擬、5 個情境驗收、Docker Compose 打包 | 1 | 1.5 | | 未開始 |
 | | **合計** | **5–8.5** | **9** | | |
@@ -48,9 +49,11 @@
 ```text
 spatial-twin-guard/
 ├─ frontend/             Vue 3 + TypeScript + Vite
+│  ├─ src/data/space-map.json  樓層與空間對照表（正本，Stage 3 產出）
+│  └─ scripts/dump-ifc.mjs     用 web-ifc 在 Node 傾印樓層與空間
 │  └─ public/models/     IFC 模型
 ├─ backend/              ASP.NET Core 10 Web API
-│  └─ space-map.json     樓層與空間對照表（Stage 3 產出）
+│  └─ (Stage 4 起讀取前端的 space-map.json)
 ├─ nginx/nginx.conf      Stage 5
 └─ docker-compose.yml    Stage 5
 ```
@@ -70,7 +73,7 @@ spatial-twin-guard/
   - [x] 安裝 `@thatopen/components`、`@thatopen/components-front`、`@thatopen/fragments`、`web-ifc`、`three`，照官方範例的版本組合一起鎖定
   - [x] 設定 web-ifc 的 `.wasm` 路徑；鎖定的版本若需要 Fragments 的 worker 檔，一併設定路徑
   - [x] 先載入 FZK-Haus（2.6 MB），確認可以旋轉、縮放
-  - [ ] 再試載一次 Institute（10.9 MB），記下載入秒數：＿＿
+  - [ ] 再試載一次 Institute（10.9 MB），載入秒數：約 2 秒（2026-10-16 實測，含解析與建索引）
 - [x] **1-4 切換與淡入**
   - [x] 兩個畫面疊在同一個容器裡，都保持掛載。切換時只改 CSS 的 `opacity` 與 `pointer-events`，轉場約 0.6–0.8 秒
   - [x] 不要用 `v-if` 或 `display: none`。用 `v-if` 的話，每次切換都會重建 Viewer、重新載入模型；用 `display: none` 會讓畫布尺寸變成 0，切回來時可能空白，或比例跑掉
@@ -127,36 +130,66 @@ spatial-twin-guard/
 
 主模型換成 Institute。這裡做出來的函式，就是 Stage 4 交給 AI 呼叫的工具。
 
-- [ ] **3-1 互動函式**（先用除錯按鈕呼叫）
-  - [ ] `sectionStorey(storey)`：隱藏上方樓層，剖切面設在該層標高上方約 1.2 公尺（平面圖慣例）
-  - [ ] `isolateSpaces(spaces[])`：只顯示這些空間所在的樓層，空間以半透明色塊標示，相機對準
-  - [ ] `highlightSpaces(spaces[], color)`：Stage 5 的告警會用到
-  - [ ] `resetView()`：全部顯示，並移除剖切
-  - [ ] 點選構件時顯示名稱與類別（除錯用）
-- [ ] **3-2 靜態對照表 `space-map.json`**
-  - [ ] 收錄 5 個樓層，加上 20–30 個重點空間
-  - [ ] 每一筆的欄位：
+> **配合 Stage 2 雙視窗的調整（2026-10-16）**
+>
+> - **工具先開窗格：** 使用者可以自己收合或關閉 BIM 窗格，收合時渲染暫停、寬度為 0。所以 `sectionStorey`、`isolateSpaces`、`highlightSpaces` 開頭都要先 `await openBim()`（展開窗格並等寬度穩定），相機對準在展開後才計算
+> - **Institute 延遲載入：** 主模型換成 Institute（10.9 MB），改成第一次展開 BIM 窗格時才載入，並顯示載入提示，不拖慢首頁。同時量出載入秒數，補上 Stage 1 的空格
+> - **工具集中成 `tools` 物件：** 放在 `App.vue`，包含 `flyToLocation`、`sectionStorey`、`isolateSpaces`、`highlightSpaces`、`resetView`，內部負責「先開窗格、再呼叫 BimView」。除錯按鈕與 Stage 4 的 `toolCalls` 都呼叫這一組
+> - **除錯按鈕放進 BIM 窗格：** 剖切、隔離、還原的按鈕放在 BIM 窗格自己的工具列，窗格收合時一起隱藏；點選構件的名稱與類別顯示在窗格底部資訊列。Stage 4 的對話窗位置到時再決定
+
+**Stage 3 實作結果與修正（2026-10-16）**
+
+- 對照表由 `frontend/scripts/dump-ifc.mjs` 傾印後手補中文，共 5 個樓層、26 間空間，正本放在 `frontend/src/data/space-map.json`。Stage 4 後端讀同一份（複製或掛載），避免兩份不一致
+- **空間不在樓層的空間結構樹裡：** `getSpatialStructure` 的樓層底下沒有 `IfcSpace`，所以「樓層→空間」改用對照表的 `storey` 欄位判斷。最初全部顯示「空間 0」、隔離時整個畫面變黑就是這個原因（找不到要顯示的構件，結果把全部隱藏）。現在隔離會把被隔離的空間本身也納入顯示，且清單為空時直接返回
+- **模型座標與 IFC 標高差一個固定偏移：** 實測所有樓層都是 +3 m（地下室 Y=0、1 樓 3、2 樓 6、3 樓 9、頂樓 12）。偏移量由「有收錄空間的樓層」的空間包圍盒反推，剖切面 = 地板 Y + 1.2 m
+- **載入提示：** 窗格中央遮罩，顯示階段（下載、解析、建索引）、進度條、百分比與已耗秒數。沒有百分比的階段用滑動色塊，避免與解析階段的 0% 混淆
+- **點選構件：** 底部資訊列 16 px，顯示中文類別、IFC 類別、名稱、GUID（空間用對照表的中文名）；被點的構件以黃色標示，點空白處取消。紅色保留給告警／標紅
+- **標紅：** 每次呼叫先清掉上一次的標示，再標新的；要同時標多個空間，一次傳入多個 key
+- 驗證：5 層剖切、隔離、標紅、還原、點選均已手動測過；Institute 載入約 2 秒（目標 ≤ 15 秒），不需要預先轉成 Fragments
+
+- [x] **3-1 互動函式**（先用除錯按鈕呼叫）
+  - [x] `sectionStorey(storey)`：隱藏上方樓層，剖切面設在該層標高上方約 1.2 公尺（平面圖慣例）
+  - [x] `isolateSpaces(spaces[])`：只顯示這些空間所在的樓層，空間以半透明色塊標示，相機對準
+  - [x] `highlightSpaces(spaces[], color)`：Stage 5 的告警會用到
+  - [x] `resetView()`：全部顯示，並移除剖切
+  - [x] 點選構件時顯示名稱與類別（除錯用）
+- [x] **3-2 靜態對照表 `space-map.json`**
+  - [x] 收錄 5 個樓層，加上 20–30 個重點空間
+  - [x] 每一筆的欄位：
     - `key`：短代號，例如 `KG-Technikraum-I`
     - `globalId`
     - `name`：房號
     - `longName`：德文房名
     - `zh`：中文名稱與常見說法
     - `storey`：所屬樓層的 `key`
-  - [ ] 樓層換算寫進表裡：Keller = 地下室、Erdgeschoss = 1 樓、1. Obergeschoss = 2 樓、2. Obergeschoss = 3 樓、Dachgeschoss = 4 樓（頂樓）
-  - [ ] 產生方式：在 BIM 畫面讀出所有 `IfcBuildingStorey` 與 `IfcSpace` 的屬性，輸出成 JSON，再手動補上 `zh` 欄位
-  - [ ] 建議收錄以下 26 間（依 2026-10-15 的模型清點結果）：
+  - [x] 樓層換算寫進表裡：Keller = 地下室、Erdgeschoss = 1 樓、1. Obergeschoss = 2 樓、2. Obergeschoss = 3 樓、Dachgeschoss = 4 樓（頂樓）
+  - [x] 產生方式：在 BIM 畫面讀出所有 `IfcBuildingStorey` 與 `IfcSpace` 的屬性，輸出成 JSON，再手動補上 `zh` 欄位
+  - [x] 建議收錄以下 26 間（依 2026-10-15 的模型清點結果）：
     - 地下室：技術機房 I–IV（Technikraum）、會議室 I–II（Besprechungsraum）、研討室（Seminarraum）、實驗室 K1–K5（Labor）
     - 地下室到 3 樓，每層各有男女廁（WC Herren、WC Damen），共 8 間
     - 1 樓：實驗室 I–II、管理員室（Buero Hausmeister）、學生辦公室 I–III（Buero Studenten）
-  - [ ] 注意模型命名的陷阱：頂樓的樓梯間走道叫 `Flur 3.OG Treppe`，跟樓層名稱 Dachgeschoss 對不上。走道不收進對照表，就不會混淆
+  - [x] 注意模型命名的陷阱：頂樓的樓梯間走道叫 `Flur 3.OG Treppe`，跟樓層名稱 Dachgeschoss 對不上。走道不收進對照表，就不會混淆
 
 **過關檢查**
 
-- [ ] 5 個樓層都能剖切，結果和模型的樓層標高一致
-- [ ] 對照表裡每一筆的 `globalId`，都能用 `isolateSpaces` 找到並對準
-- [ ] Institute 載入 ≤ 15 秒。超過的話，改成預先轉成 Fragments 檔（That Open 自己的格式）再載入
+- [x] 5 個樓層都能剖切，結果和模型的樓層標高一致
+- [x] 對照表裡每一筆的 `globalId`，都能用 `isolateSpaces` 找到並對準
+- [x] Institute 載入 ≤ 15 秒。超過的話，改成預先轉成 Fragments 檔（That Open 自己的格式）再載入
 
 **不過關時：** 剖切面做不好，就只隱藏上方樓層，降級成「只顯示單一樓層」。空間色塊顯示不出來，就改成隔離該樓層，並在房間位置放文字標籤。
+
+## UI 美化（插在 Stage 3 與 Stage 4 之間，限時 0.5 人日）
+
+使用者回報原生按鈕與下拉選單太陽春。這一步只換外觀，不動功能與程式結構。
+
+- [ ] 引入 Tailwind CSS（v4 的 Vite 外掛）。先確認 preflight 重置樣式不會弄壞 Cesium 的比例尺與版權列，必要時只套用在自己的元件範圍
+- [ ] 引入 shadcn-vue，只裝會用到的元件（Button、Select、Card，視需要加 Input、Badge），不全裝。它會帶入 reka-ui 等相依套件
+- [ ] 深色主題統一：頂部工具列、BIM 控制面板（樓層與空間選單）、底部資訊列、載入遮罩、左右窗格的標籤與邊框
+- [ ] 導覽按鈕（NavPanel）、分隔條、收合箭頭一併換成同一套樣式
+- [ ] Stage 4 的對話面板、Stage 5 的告警清單沿用同一套元件
+- [ ] 過關：`npm run build` 通過、功能行為與 Stage 3 完全相同、Cesium 控制項顯示正常
+
+**不過關時：** shadcn-vue 與現有樣式衝突難解，就只留 Tailwind，按鈕與選單自己寫幾個小元件。
 
 ## Stage 4 AI 指令（1–2 人日，限時 2）
 

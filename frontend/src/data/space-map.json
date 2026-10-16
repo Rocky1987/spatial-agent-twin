@@ -1,0 +1,370 @@
+{
+ "model": "AC20-Institute-Var-2.ifc",
+ "storeys": [
+  {
+   "key": "KG",
+   "globalId": "3krrpJBfL2SBWSONoQ68Xx",
+   "name": "Keller",
+   "elevation": -3,
+   "zh": "地下室",
+   "aliases": [
+    "B1",
+    "地下一樓",
+    "地下1樓"
+   ]
+  },
+  {
+   "key": "EG",
+   "globalId": "0jrZ4kmNLEyeIrSAFW8xw8",
+   "name": "Erdgeschoss",
+   "elevation": 0,
+   "zh": "1 樓",
+   "aliases": [
+    "一樓",
+    "EG"
+   ]
+  },
+  {
+   "key": "OG1",
+   "globalId": "3wES2XYi17$hrBr7mbDuyg",
+   "name": "1. Obergeschoss",
+   "elevation": 3,
+   "zh": "2 樓",
+   "aliases": [
+    "二樓"
+   ]
+  },
+  {
+   "key": "OG2",
+   "globalId": "2SZ5lnBQD2u9lFVZFen_5J",
+   "name": "2. Obergeschoss",
+   "elevation": 6,
+   "zh": "3 樓",
+   "aliases": [
+    "三樓"
+   ]
+  },
+  {
+   "key": "DG",
+   "globalId": "3P_7taSfTB1uu5RSuYEGO1",
+   "name": "Dachgeschoss",
+   "elevation": 9,
+   "zh": "4 樓（頂樓）",
+   "aliases": [
+    "四樓",
+    "頂樓",
+    "屋頂層"
+   ]
+  }
+ ],
+ "spaces": [
+  {
+   "key": "KG-Besprechungsraum-I",
+   "globalId": "3UEb2iq7D2tOgbX6Mufs$X",
+   "name": "001",
+   "longName": "Besprechungsraum I",
+   "zh": "會議室 I",
+   "aliases": [
+    "會議室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Besprechungsraum-II",
+   "globalId": "2xcLNHPon6VO6wB_n0EQLF",
+   "name": "002",
+   "longName": "Besprechungsraum II",
+   "zh": "會議室 II",
+   "aliases": [
+    "會議室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Technikraum-I",
+   "globalId": "2Hh$tXimL1_Aogi9jn1cZ4",
+   "name": "003",
+   "longName": "Technikraum I",
+   "zh": "技術機房 I",
+   "aliases": [
+    "機房",
+    "設備間"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Technikraum-II",
+   "globalId": "2sVpKMTdb3u8IUv50wOLpo",
+   "name": "004",
+   "longName": "Technikraum II",
+   "zh": "技術機房 II",
+   "aliases": [
+    "機房",
+    "設備間"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Technikraum-III",
+   "globalId": "0V74RtuUH1zQt_CcawQbBc",
+   "name": "005",
+   "longName": "Technikraum III",
+   "zh": "技術機房 III",
+   "aliases": [
+    "機房",
+    "設備間"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Seminarraum",
+   "globalId": "0dXE$xLxz8MwbtYoTqJPiO",
+   "name": "006",
+   "longName": "Seminarraum",
+   "zh": "研討室",
+   "aliases": [
+    "教室",
+    "研討會議室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Technikraum-IV",
+   "globalId": "2G3Zgh3YLFBxViczryC8tv",
+   "name": "007",
+   "longName": "Technikraum IV",
+   "zh": "技術機房 IV",
+   "aliases": [
+    "機房",
+    "設備間"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-WC-Herren",
+   "globalId": "1pG7ErnqL79fYOSoJhY$mD",
+   "name": "008",
+   "longName": "WC Herren",
+   "zh": "男廁",
+   "aliases": [
+    "男生廁所",
+    "男洗手間",
+    "廁所"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-WC-Damen",
+   "globalId": "1nsRm1QQb1xwWpzzFR7Ax3",
+   "name": "009",
+   "longName": "WC Damen",
+   "zh": "女廁",
+   "aliases": [
+    "女生廁所",
+    "女洗手間",
+    "廁所"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Labor-K1",
+   "globalId": "2NO$Il8fr1n8x3zsU1IoYc",
+   "name": "010",
+   "longName": "Labor K1",
+   "zh": "實驗室 K1",
+   "aliases": [
+    "實驗室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Labor-K2",
+   "globalId": "3vTaz$m4D7Mw20Cj4ZCMEW",
+   "name": "011",
+   "longName": "Labor K2",
+   "zh": "實驗室 K2",
+   "aliases": [
+    "實驗室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Labor-K3",
+   "globalId": "29dtO28k16G9baf14UO37j",
+   "name": "012",
+   "longName": "Labor K3",
+   "zh": "實驗室 K3",
+   "aliases": [
+    "實驗室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Labor-K4",
+   "globalId": "3YOWN6kp53UhVDk7gccfjD",
+   "name": "013",
+   "longName": "Labor K4",
+   "zh": "實驗室 K4",
+   "aliases": [
+    "實驗室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "KG-Labor-K5",
+   "globalId": "25NDKbpWH5r94ho13fJMeb",
+   "name": "014",
+   "longName": "Labor K5",
+   "zh": "實驗室 K5",
+   "aliases": [
+    "實驗室"
+   ],
+   "storey": "KG"
+  },
+  {
+   "key": "EG-Labor-I",
+   "globalId": "1_Evy7T$DCiwLgTMLHCRoe",
+   "name": "102",
+   "longName": "Labor I",
+   "zh": "實驗室 I",
+   "aliases": [
+    "實驗室"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "EG-Labor-II",
+   "globalId": "3eQ_MQ5er5UeRXq4xxAoKl",
+   "name": "103",
+   "longName": "Labor II",
+   "zh": "實驗室 II",
+   "aliases": [
+    "實驗室"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "EG-Buero-Hausmeister",
+   "globalId": "25QUQJ9jHAFengkpc9N7GR",
+   "name": "104",
+   "longName": "Buero Hausmeister",
+   "zh": "管理員室",
+   "aliases": [
+    "警衛室",
+    "管理室"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "EG-Buero-Studenten-I",
+   "globalId": "1DxredyET5bf_85HZe8$FO",
+   "name": "105",
+   "longName": "Buero Studenten I",
+   "zh": "學生辦公室 I",
+   "aliases": [
+    "學生研究室"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "EG-Buero-Studenten-II",
+   "globalId": "3$FatfHY1Cg9apAMwbKPN8",
+   "name": "106",
+   "longName": "Buero Studenten II",
+   "zh": "學生辦公室 II",
+   "aliases": [
+    "學生研究室"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "EG-WC-Herren",
+   "globalId": "3j5r$vfHT3JfqUfpdRoXnP",
+   "name": "112",
+   "longName": "WC Herren",
+   "zh": "男廁",
+   "aliases": [
+    "男生廁所",
+    "男洗手間",
+    "廁所"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "EG-WC-Damen",
+   "globalId": "1oKaKV7Wz8IOJ10cA1PGWP",
+   "name": "113",
+   "longName": "WC Damen",
+   "zh": "女廁",
+   "aliases": [
+    "女生廁所",
+    "女洗手間",
+    "廁所"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "EG-Buero-Studenten-III",
+   "globalId": "0jhU4VZ6XCxee3pjfx5VMh",
+   "name": "114",
+   "longName": "Buero Studenten III",
+   "zh": "學生辦公室 III",
+   "aliases": [
+    "學生研究室"
+   ],
+   "storey": "EG"
+  },
+  {
+   "key": "OG1-WC-Herren",
+   "globalId": "0f6kjO4cnBngLgZgtaoBTE",
+   "name": "213",
+   "longName": "WC Herren",
+   "zh": "男廁",
+   "aliases": [
+    "男生廁所",
+    "男洗手間",
+    "廁所"
+   ],
+   "storey": "OG1"
+  },
+  {
+   "key": "OG1-WC-Damen",
+   "globalId": "37pP75EaP1axQNg3rWc_WT",
+   "name": "214",
+   "longName": "WC Damen",
+   "zh": "女廁",
+   "aliases": [
+    "女生廁所",
+    "女洗手間",
+    "廁所"
+   ],
+   "storey": "OG1"
+  },
+  {
+   "key": "OG2-WC-Herren",
+   "globalId": "3M3dydUxH2hR7Uvg9QNhS$",
+   "name": "313",
+   "longName": "WC Herren",
+   "zh": "男廁",
+   "aliases": [
+    "男生廁所",
+    "男洗手間",
+    "廁所"
+   ],
+   "storey": "OG2"
+  },
+  {
+   "key": "OG2-WC-Damen",
+   "globalId": "0jh6L39QvEQu8mVKX3j43f",
+   "name": "314",
+   "longName": "WC Damen",
+   "zh": "女廁",
+   "aliases": [
+    "女生廁所",
+    "女洗手間",
+    "廁所"
+   ],
+   "storey": "OG2"
+  }
+ ]
+}
