@@ -21,3 +21,15 @@ jobs:
       - run: npm ci
       # prebuild 會先複製 Cesium 靜態檔，再跑 vue-tsc 型別檢查與 vite build
       - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet build SpatialTwinGuard.slnx -c Release

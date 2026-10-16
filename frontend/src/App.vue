@@ -6,13 +6,16 @@ import BimView from './components/BimView.vue'
 import NavPanel from './components/NavPanel.vue'
 import Button from './components/ui/Button.vue'
 import UiSelect from './components/ui/UiSelect.vue'
-import { ChevronLeft, ChevronRight, Eraser, Layers, MapPinned, Plane, RotateCcw, ScanSearch, X } from 'lucide-vue-next'
+import ChatPanel from './components/ChatPanel.vue'
+import { Bot, ChevronLeft, ChevronRight, Eraser, Layers, MapPinned, Plane, RotateCcw, ScanSearch, X } from 'lucide-vue-next'
 
 // 雙視窗：地圖固定在左邊；split 時右邊展開 BIM 窗格
 const split = ref(false)
 const status = ref('')
 const model = ref('/models/AC20-Institute-Var-2.ifc')
 const pickInfo = ref('')
+const chatOpen = ref(true)
+const chatRef = ref<InstanceType<typeof ChatPanel>>()
 const storeyKey = ref(spaceMap.storeys[1].key)
 const spaceKey = ref(spaceMap.spaces[0].key)
 
@@ -68,6 +71,14 @@ const tools = {
   async highlightSpaces(keys: string[], color?: string) { await openBim(); await bimRef.value?.highlightSpaces(keys, color) },
   async resetView() { await openBim(); await bimRef.value?.resetView() },
 }
+
+// 手動按鈕也算一步，這樣「上一步」可以退回按鈕的操作
+async function step(name: keyof typeof tools, ...args: unknown[]) {
+  const chat = chatRef.value
+  chat?.begin()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await ((chat ? chat.tracked : tools) as any)[name](...args)
+}
 </script>
 
 <template>
@@ -76,6 +87,7 @@ const tools = {
       <CesiumView ref="cesiumRef" :active="true" @status="status = $event" />
       <NavPanel @action="cesiumRef?.navigate($event)" />
       <div class="tag">城市</div>
+      <ChatPanel ref="chatRef" v-show="chatOpen" class="chat" :tools="tools" @close="chatOpen = false" />
     </div>
     <div class="divider" title="拖曳調整視窗大小" @pointerdown="dragStart"><span /></div>
     <div class="pane pane-bim" :style="{ '--bim-w': bimPct + '%' }">
@@ -85,14 +97,14 @@ const tools = {
       <div class="bim-tools">
         <div class="group">
           <UiSelect v-model="storeyKey" :options="storeyOptions" class="w-28" />
-          <Button size="sm" @click="tools.sectionStorey(storeyKey)"><Layers class="size-4" />剖切樓層</Button>
+          <Button size="sm" @click="step('sectionStorey', storeyKey)"><Layers class="size-4" />剖切樓層</Button>
         </div>
         <div class="group">
           <UiSelect v-model="spaceKey" :options="spaceOptions" class="w-56" />
-          <Button size="sm" @click="tools.isolateSpaces([spaceKey])"><ScanSearch class="size-4" />隔離</Button>
-          <Button size="sm" variant="destructive" @click="tools.highlightSpaces([spaceKey])"><MapPinned class="size-4" />標紅</Button>
+          <Button size="sm" @click="step('isolateSpaces', [spaceKey])"><ScanSearch class="size-4" />隔離</Button>
+          <Button size="sm" variant="destructive" @click="step('highlightSpaces', [spaceKey])"><MapPinned class="size-4" />標紅</Button>
         </div>
-        <Button size="sm" @click="tools.resetView()"><Eraser class="size-4" />還原</Button>
+        <Button size="sm" @click="step('resetView')"><Eraser class="size-4" />還原</Button>
       </div>
       <div class="bim-info">{{ pickInfo || '點選構件可顯示名稱與類別' }}</div>
       <Button class="close" variant="destructive" size="icon" title="關閉 BIM 視窗" @click="split = false"><X class="size-5" /></Button>
@@ -103,8 +115,9 @@ const tools = {
     </button>
 
     <div class="toolbar">
-      <Button variant="default" @click="flyToLocation('institute')"><Plane class="size-4" />飛往大樓</Button>
-      <Button @click="flyToLocation('taiwan')"><RotateCcw class="size-4" />回到台灣</Button>
+      <Button variant="default" @click="step('flyToLocation', 'institute')"><Plane class="size-4" />飛往大樓</Button>
+      <Button @click="step('flyToLocation', 'taiwan')"><RotateCcw class="size-4" />回到台灣</Button>
+      <Button v-if="!chatOpen" @click="chatOpen = true"><Bot class="size-4" />AI 助理</Button>
       <span class="status">{{ status }}</span>
     </div>
   </div>
@@ -225,6 +238,12 @@ const tools = {
   border-radius: 12px;
   pointer-events: none;
   word-break: break-all;
+}
+.chat {
+  position: absolute;
+  top: 60px;
+  left: 12px;
+  z-index: 18;
 }
 .tag {
   position: absolute;

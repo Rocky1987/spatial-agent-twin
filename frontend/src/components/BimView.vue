@@ -236,6 +236,15 @@ async function resetView() {
   refresh()
 }
 
+// 相機對準並改成俯視角：polar 0 = 正上方。留一點傾斜，才看得出立體與牆面
+const PLAN_POLAR = THREE.MathUtils.degToRad(25)
+const OBLIQUE_POLAR = THREE.MathUtils.degToRad(40)
+async function frame(box: THREE.Box3, polar: number) {
+  const c = world.value?.camera.controls
+  if (!c) return
+  await Promise.all([c.rotatePolarTo(polar, true), c.fitToBox(box, true)])
+}
+
 // 隱藏上方樓層，並在該層地板上方 1.2 m 剖切（平面圖慣例）
 async function sectionStorey(key: string) {
   await ensureLoaded()
@@ -251,7 +260,7 @@ async function sectionStorey(key: string) {
   model.useClippingPlanes(w.renderer!.clippingPlanes)
   const box = fitBox!.clone()
   box.max.y = y
-  await w.camera.controls.fitToBox(box, true)
+  await frame(box, PLAN_POLAR)
   refresh()
 }
 
@@ -285,7 +294,7 @@ async function isolateSpaces(refs: string[], color = '#ff3b30') {
   await model.setVisible([...keep], true)
   await paint(ids, color)
   const box = await model.getMergedBox(ids)
-  await w.camera.controls.fitToBox(box.expandByScalar(4), true)
+  await frame(box.expandByScalar(4), OBLIQUE_POLAR)
   refresh()
 }
 
@@ -295,7 +304,10 @@ async function highlightSpaces(refs: string[], color = '#ff3b30') {
   if (!model) return
   const ids = resolveSpaces(refs)
   await model.resetHighlight() // 每次標紅都取代上一次的標示
-  if (ids.length) await paint(ids, color)
+  if (ids.length) {
+    await paint(ids, color)
+    await frame((await model.getMergedBox(ids)).expandByScalar(4), OBLIQUE_POLAR)
+  }
   refresh()
 }
 
