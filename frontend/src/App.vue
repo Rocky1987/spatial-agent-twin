@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import spaceMap from './data/space-map.json'
+import { THRESHOLD, useSensors } from './utils/sensors'
 import CesiumView from './components/CesiumView.vue'
 import BimView from './components/BimView.vue'
 import NavPanel from './components/NavPanel.vue'
 import Button from './components/ui/Button.vue'
 import UiSelect from './components/ui/UiSelect.vue'
 import ChatPanel from './components/ChatPanel.vue'
-import { Bot, ChevronLeft, ChevronRight, Eraser, Layers, MapPinned, Plane, RotateCcw, ScanSearch, X } from 'lucide-vue-next'
+import { Bot, ChevronLeft, ChevronRight, Eraser, Flame, Layers, MapPinned, Plane, RotateCcw, ScanSearch, TriangleAlert, X } from 'lucide-vue-next'
 
 // 雙視窗：地圖固定在左邊；split 時右邊展開 BIM 窗格
 const split = ref(false)
@@ -72,6 +73,21 @@ const tools = {
   async resetView() { await openBim(); await bimRef.value?.resetView() },
 }
 
+// IoT 模擬：超標的空間自動標紅（只在 BIM 窗格已開時；不會自己把窗格彈出來），告警清單一直顯示在地圖右下角
+const { sensors, alerts, spike } = useSensors()
+const spaceZh = (k: string) => spaceMap.spaces.find((s) => s.key === k)?.zh ?? k
+const alertKeys = () => alerts.value.map((a) => a.spaceKey).sort().join(',')
+// 感測器溫度牌：BIM 窗格開著、模型載入後，每次更新都同步到 3D
+watch([sensors, split], () => {
+  if (split.value) void bimRef.value?.setSensors(sensors.map((s) => ({ spaceKey: s.spaceKey, temp: s.temp, alert: s.temp >= THRESHOLD })))
+}, { deep: true })
+const barPct = (t: number) => Math.min(100, Math.max(0, ((t - 20) / 20) * 100))
+const sensorsOpen = ref(true)
+// 自動標紅只上色，不動相機與可見性；要對準告警得由使用者請 AI 執行 showAlerts
+watch([alertKeys, split], ([now]) => {
+  if (split.value) void bimRef.value?.markSpaces(now ? now.split(',') : [])
+})
+
 // 手動按鈕也算一步，這樣「上一步」可以退回按鈕的操作
 async function step(name: keyof typeof tools, ...args: unknown[]) {
   const chat = chatRef.value
@@ -87,7 +103,31 @@ async function step(name: keyof typeof tools, ...args: unknown[]) {
       <CesiumView ref="cesiumRef" :active="true" @status="status = $event" />
       <NavPanel @action="cesiumRef?.navigate($event)" />
       <div class="tag">城市</div>
-      <ChatPanel ref="chatRef" v-show="chatOpen" class="chat" :tools="tools" @close="chatOpen = false" />
+      <ChatPanel ref="chatRef" v-show="chatOpen" class="chat" :tools="tools" :alerts="alerts" @close="chatOpen = false" />
+      <div class="alerts ui">
+        <div class="alerts-head">
+          <TriangleAlert class="size-4" :class="alerts.length ? 'text-red-400' : 'text-emerald-400'" />
+          <span class="flex-1">{{ alerts.length ? `告警 ${alerts.length} 處` : '溫度正常' }}</span>
+          <Button size="sm" title="模擬某個空間溫度飆高（錄影與驗收用）" @click="spike()"><Flame class="size-4" />模擬升溫</Button>
+        </div>
+        <ul v-if="sensorsOpen" class="alerts-list">
+          <li
+            v-for="s in sensors"
+            :key="s.spaceKey"
+            :class="{ hot: s.temp >= THRESHOLD }"
+            title="點一下：在 BIM 中隔離這個空間"
+            @click="step('isolateSpaces', [s.spaceKey])"
+          >
+            <span class="name">{{ spaceZh(s.spaceKey) }}<small>（{{ s.spaceKey.split('-')[0] }}）</small></span>
+            <span class="bar"><i :style="{ width: barPct(s.temp) + '%' }" /><u :style="{ left: barPct(THRESHOLD) + '%' }" /></span>
+            <b>{{ s.temp.toFixed(1) }}°</b>
+          </li>
+        </ul>
+        <div class="alerts-foot">
+          模擬 {{ sensors.length }} 個感測器，每 2 秒回報；達 {{ THRESHOLD }}°C 就告警並標紅，AI 也看得到。
+          <a @click="sensorsOpen = !sensorsOpen">{{ sensorsOpen ? '收合' : '展開' }}</a>
+        </div>
+      </div>
     </div>
     <div class="divider" title="拖曳調整視窗大小" @pointerdown="dragStart"><span /></div>
     <div class="pane pane-bim" :style="{ '--bim-w': bimPct + '%' }">
@@ -244,6 +284,94 @@ async function step(name: keyof typeof tools, ...args: unknown[]) {
   top: 60px;
   left: 12px;
   z-index: 18;
+}
+.alerts {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10;
+  width: 300px;
+  max-width: calc(100% - 24px);
+  color: #fff;
+  font-size: 13px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 8px;
+}
+.alerts-head,
+.alerts-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.alerts-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.alerts-list li {
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.alerts-list li:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.alerts-list li.hot {
+  color: #fecaca;
+  background: rgba(220, 38, 38, 0.25);
+}
+.alerts-list .name {
+  flex: 0 0 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alerts-list .bar {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.alerts-list .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #22c55e;
+  transition: width 0.5s;
+}
+.alerts-list li.hot .bar i {
+  background: #ef4444;
+}
+.alerts-list .bar u {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: #fff;
+}
+.alerts-list b {
+  flex: 0 0 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.alerts-foot a {
+  margin-left: 4px;
+  color: #7dd3fc;
+  cursor: pointer;
+}
+.alerts-list small,
+.alerts-foot {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+}
+.alerts-foot {
+  margin-top: 4px;
 }
 .tag {
   position: absolute;

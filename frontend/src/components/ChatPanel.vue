@@ -62,6 +62,7 @@ function label(c: Call): string {
     case 'isolateSpaces': return `隔離空間：${(a.keys as string[]).map(spaceZh).join('、')}`
     case 'highlightSpaces': return `標紅空間：${(a.keys as string[]).map(spaceZh).join('、')}`
     case 'resetView': return '還原 BIM 視圖（清除剖切、隔離與標記）'
+    case 'showAlerts': return '在 BIM 中標出目前所有告警的空間'
     case 'undo': return '回到上一步的畫面'
     case 'redo': return '再往前一步'
     default: return c.name
@@ -95,7 +96,7 @@ async function redo() {
   await restore(next)
 }
 
-const examples = ['飛到大樓，剖開二樓', '只看三樓的會議室', '把地下室的技術室標紅', '還原並回到台灣', '回到上一步', '再往前一步']
+const examples = ['飛到大樓，剖開二樓', '只看三樓的會議室', '把地下室的技術室標紅', '現在哪裡有告警？標出來', '還原並回到台灣', '回到上一步', '再往前一步']
 
 const scrollDown = () => nextTick(() => listEl.value?.scrollTo({ top: listEl.value.scrollHeight, behavior: 'smooth' }))
 
@@ -107,6 +108,12 @@ async function run(c: Call) {
     case 'isolateSpaces': return tracked.isolateSpaces(a.keys as string[])
     case 'highlightSpaces': return tracked.highlightSpaces(a.keys as string[])
     case 'resetView': return tracked.resetView()
+    case 'showAlerts': {
+      const keys = (props.alerts ?? []).map((x) => x.spaceKey)
+      if (!keys.length) throw new Error('目前沒有告警')
+      // 用隔離：只標紅的話，地下室的房間被樓上蓋住，相機會鑽進牆裡
+      return tracked.isolateSpaces(keys)
+    }
     case 'undo': return undo()
     case 'redo': return redo()
     default: throw new Error('未知的工具：' + c.name)

@@ -294,6 +294,10 @@ async function isolateSpaces(refs: string[], color = '#ff3b30') {
   await model.setVisible([...keep], true)
   await paint(ids, color)
   const box = await model.getMergedBox(ids)
+  // 再在房間頂部剖一刀：樓上的樓板與屋頂即使被重新載入也不會蓋住視野（滾輪縮放時會發生）
+  clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), box.max.y + 0.2)
+  w.renderer!.setPlane(true, clipPlane)
+  model.useClippingPlanes(w.renderer!.clippingPlanes)
   await frame(box.expandByScalar(4), OBLIQUE_POLAR)
   refresh()
 }
@@ -308,6 +312,63 @@ async function highlightSpaces(refs: string[], color = '#ff3b30') {
     await paint(ids, color)
     await frame((await model.getMergedBox(ids)).expandByScalar(4), OBLIQUE_POLAR)
   }
+  refresh()
+}
+
+// ---- Stage 5：感測器標籤（飄在各空間中央的溫度牌，穿牆可見） ----
+const sprites = new Map<string, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture }>()
+let spritesInit: Promise<void> | undefined
+async function initSprites(keys: string[]) {
+  for (const key of keys) {
+    const id = spaceLocal.get(key)
+    if (id == null) continue
+    const box = await model!.getMergedBox([id])
+    const canvas = document.createElement('canvas')
+    canvas.width = 160
+    canvas.height = 80
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.colorSpace = THREE.SRGBColorSpace
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
+    sprite.renderOrder = 999
+    sprite.scale.set(5, 2.5, 1)
+    sprite.position.set((box.min.x + box.max.x) / 2, box.min.y + (box.max.y - box.min.y) * 0.5, (box.min.z + box.max.z) / 2)
+    world.value!.scene.three.add(sprite)
+    sprites.set(key, { sprite, ctx: canvas.getContext('2d')!, tex })
+  }
+}
+
+// 每次感測器更新就重畫牌子：正常綠色、超標紅色
+async function setSensors(list: { spaceKey: string; temp: number; alert: boolean }[]) {
+  if (!model || !world.value || !spaceLocal.size) return
+  spritesInit ??= initSprites(list.map((s) => s.spaceKey))
+  await spritesInit
+  for (const s of list) {
+    const e = sprites.get(s.spaceKey)
+    if (!e) continue
+    const { ctx, tex } = e
+    ctx.clearRect(0, 0, 160, 80)
+    ctx.fillStyle = s.alert ? '#dc2626' : '#15803d'
+    ctx.beginPath()
+    ctx.roundRect(4, 4, 152, 72, 16)
+    ctx.fill()
+    ctx.lineWidth = 4
+    ctx.strokeStyle = '#fff'
+    ctx.stroke()
+    ctx.fillStyle = '#fff'
+    ctx.font = 'bold 40px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(`${s.temp.toFixed(1)}°`, 80, 42)
+    tex.needsUpdate = true
+  }
+}
+
+// 只上色：不隱藏、不剖切、不動相機（告警自動標紅用，避免打斷使用者正在看的畫面）
+async function markSpaces(refs: string[]) {
+  if (!model) return
+  const ids = resolveSpaces(refs)
+  await model.resetHighlight()
+  if (ids.length) await paint(ids, '#ff3b30')
   refresh()
 }
 
@@ -391,7 +452,7 @@ onBeforeUnmount(() => {
 
 defineExpose({
   components, world, loadIfc, navigate,
-  ensureLoaded, sectionStorey, isolateSpaces, highlightSpaces, resetView,
+  ensureLoaded, sectionStorey, isolateSpaces, highlightSpaces, resetView, setSensors, markSpaces,
 })
 </script>
 

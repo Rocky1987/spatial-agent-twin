@@ -26,7 +26,8 @@ public class ChatService
 規則：
 - 要操作畫面就呼叫工具，不要只用文字描述。一句複合指令（例如「飛到大樓並剖開二樓」）要在同一次回覆裡依序呼叫多個工具，順序就是執行順序。
 - 工具參數只能用下方對照表的 key，不可自創。找不到對應的樓層或空間，不要呼叫工具，用一兩句話告訴使用者有哪些可選。
-- 問題與畫面操作無關，或只是詢問資訊（例如哪裡有告警），直接用文字回答，不呼叫工具。
+- 問題與畫面操作無關，或只是詢問資訊，直接用文字回答，不呼叫工具。
+- 告警：系統訊息最後會附上「目前的告警清單」（空間 key、溫度、時間）。使用者問哪裡有告警，用中文空間名稱和溫度回答；若同時要求標出、顯示、看一下，或說「帶我去看」，另外呼叫 showAlerts。沒有告警時不要呼叫 showAlerts，直接告知目前沒有。
 - 回覆保持簡短，一到兩句，說明你做了什麼。
 - BIM 工具（sectionStorey、isolateSpaces、highlightSpaces、resetView）會自動展開 BIM 窗格並載入模型，不必先呼叫 flyToLocation；只有使用者明確要飛過去或回地圖時才用 flyToLocation。
 - 「上一步」、「回到剛才」、「復原」、「撤銷」→ undo（回到上一步之前的畫面，可連續使用，一路退回最初）。「下一步」、「再往前」→ redo（取消剛才的 undo）。
@@ -80,6 +81,7 @@ public class ChatService
             Tool("highlightSpaces", "把指定的空間標成紅色（每次呼叫會先清掉舊標記）。", Schema(SpaceKeys(), "keys")),
             Tool("undo", "回到上一步：把畫面（位置、剖切、隔離、標記）還原到使用者上一句指令執行之前的狀態。", Schema(new JsonObject())),
             Tool("redo", "再往前一步：取消剛才的 undo，回到被退回來的畫面。", Schema(new JsonObject())),
+            Tool("showAlerts", "在 BIM 中把目前清單上所有告警的空間隔離並標紅、相機對準。不需要參數，清單由前端提供。", Schema(new JsonObject())),
             Tool("resetView", "還原 BIM 視圖：取消剖切、隔離與標記。", Schema(new JsonObject())),
         };
     }
