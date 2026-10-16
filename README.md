@@ -6,8 +6,6 @@
 
 用中文對 AI 下指令，畫面就從台灣地圖飛進一棟建築，剖開樓層、找到房間。建築裡模擬的溫度感測器每 2 秒更新一次，超過門檻的房間自動標紅；問 AI「哪裡有告警」，它也答得出來。
 
-這是個人作品集的概念驗證。建築模型、建物位置與感測資料都不是真實量測，和工業級數位雙生的差別見[工業級精度與本專案規格的差別](#工業級精度與本專案規格的差別)。
-
 ![網頁畫面：左側地圖、右側 BIM 模型、對話窗與感測器面板](docs/images/demo.png)
 
 ## 這是什麼
@@ -62,14 +60,10 @@ docker compose up --build
 | 4 | 現在哪裡有告警？標出來 | AI 說出告警的房間與溫度，BIM 隔離並標紅這些房間 |
 | 5 | 請帶我看技術機房，並幫我剖切到該樓層 | 一句話完成三步：飛到大樓、剖切地下室、隔離 4 間技術機房 |
 
-- **情境 4 沒有告警時**，先按感測器面板的「模擬升溫」，等幾秒溫度升過 30°C 再問。
-- **情境 2、3 驗證樓層換算。** 模型是德國建築，台灣的 1 樓是德國的 Erdgeschoss，2 樓才是 1. Obergeschoss。
-- **情境 3、5 驗證中文對德文房名**，例如「技術機房」要對到 `Technikraum`。
-- 「回到上一步」「再往前一步」「還原並回到台灣」也都可以說。點感測器面板的某一列，會直接隔離那個房間。
+- **情境 沒有告警時**，先按感測器面板的「模擬升溫」，等幾秒溫度升過 30°C 再問。
+
 
 ## 概念說明
-
-這一章給不熟悉背景的讀者，不需要工程知識。
 
 ### 什麼是數位雙生
 
@@ -93,7 +87,7 @@ docker compose up --build
 |---|---|---|
 | 地理 | 它在哪裡？周圍是什麼？ | Cesium 3D 地球，疊上國土測繪中心的電子地圖、OSM 3D 建物與地形；滑鼠位置換算成 TWD97 坐標 |
 | 建築 | 它長什麼樣？有哪些樓層、房間？ | IFC 模型（營建業的開放標準格式）直接在瀏覽器解析與顯示，可剖切樓層、隔離房間、標紅 |
-| 語意 | 「三樓的廁所」是模型裡的哪幾個物件？ | 一份對照表：5 個樓層、26 間空間，每筆有短代號（key）、IFC 的 GlobalId、德文名、中文名與常見說法 |
+| 語意 | 「三樓的廁所」是模型裡的哪幾個物件？ | 一份對照表：5 個樓層、26 間空間，每筆有短代號（key）、IFC 的 GlobalId、中文名與常見說法 |
 | 狀態 | 它現在怎麼樣？ | 後端模擬 10 個溫度感測器，掛在對照表的空間上，每 2 秒推播一次；達 30°C 告警 |
 | 互動 | 我要怎麼問、怎麼看？ | 用中文對 AI 說，AI 把話轉成操作畫面的指令 |
 
@@ -111,7 +105,7 @@ docker compose up --build
 
 感測器的告警走另一條路，不經過 AI：
 
-1. 後端每 2 秒更新 10 個溫度，經 SignalR 推給所有開著的畫面。
+1. 後端每 2 秒更新 10 個溫度，經 SignalR 推撥給所有開著的畫面。
 2. 溫度達 30°C，**程式**就把房間標紅、在面板列出，並把溫度牌變紅。門檻是寫在程式裡的數字，不是 AI 判斷的。
 3. 你問「哪裡有告警」時，後端把同一份告警清單附給模型，模型照清單回答。
 
@@ -149,11 +143,11 @@ docker compose up --build
 
 它扮演三個角色：
 
-1. **翻譯：** 把口語中文轉成有結構的指令。「二樓」要換成德國的 1. Obergeschoss（`OG1`），「技術機房」要對到 `Technikraum` 的 4 間房。
+1. **翻譯：** 把口語中文轉成有結構的指令。「二樓」要換成元件 1. Obergeschoss（`OG1`），「技術機房」要對到 `Technikraum` 的 4 間房。
 2. **調度：** 把一句複合指令拆成有順序的多個動作，例如先飛過去、再剖切、再隔離。
 3. **解說：** 根據後端給的告警清單，用中文房名與溫度回答「哪裡有告警」；使用者要求標出來時，再呼叫標示告警的工具。
 
-它不做、也做不到的事：
+它不做、暫時也做不到的事：
 
 - **不產生數據。** 溫度由後端模擬器產生，模型只讀得到附在請求裡的告警清單。
 - **不判斷告警。** 30°C 門檻寫在程式裡；房間自動標紅是程式做的，AI 不在這條路上。
@@ -231,7 +225,7 @@ flowchart LR
 
 ### AI 工具與 System Prompt
 
-System Prompt 有三部分：角色與規則、樓層換算（台灣 1 樓 = Erdgeschoss）、樓層與空間對照表全文，整段標記 `cache_control`（命中率未量測）。每次請求另外附上一段不快取的「目前的告警清單」，取自後端的 `SensorSimulator.Alerts()`，與推給前端的是同一份狀態。
+System Prompt 有三部分：角色與規則、樓層換算、樓層與空間對照表全文，整段標記 `cache_control`（命中率未量測）。每次請求另外附上一段不快取的「目前的告警清單」，取自後端的 `SensorSimulator.Alerts()`，與推給前端的是同一份狀態。
 
 | 工具 | 參數 | 前端做什麼 |
 |---|---|---|
@@ -360,7 +354,7 @@ MIT
 
 ## 備註：作品集與技術棧
 
-這是個人作品集專案，目的是展示如何把地理、建築、感測與 AI 串成一個戰情室畫面：只用開放格式與開源套件，在極簡 MVP 的範圍（5 個 Stage）內做出能完整展示的流程，並把它和工業級數位雙生的差距寫清楚。
+這是個人作品集的概念驗證。建築模型、建物位置與感測資料都不是真實量測，和工業級數位雙生的差別見[工業級精度與本專案規格的差別](#工業級精度與本專案規格的差別)。目的是展示如何把地理、建築、感測與 AI 串成一個戰情室畫面：只用開放格式與開源套件，在極簡 MVP 的範圍（5 個 Stage）內做出能完整展示的流程，並把它和工業級數位雙生的差距寫清楚。
 
 - 前端：Vue 3、TypeScript、Vite、CesiumJS、That Open Components、web-ifc（WASM）、Three.js、Tailwind CSS、reka-ui
 - 後端：.NET 9、ASP.NET Core Minimal API、SignalR
@@ -375,8 +369,6 @@ MIT
 [中文](#ai-空間智慧數位雙生戰情室)
 
 Give an AI instructions in Chinese and the view flies from a map of Taiwan into a building, cuts open a floor and finds a room. Simulated temperature sensors in the building update every 2 seconds; rooms over the threshold turn red automatically, and the AI can tell you where the alerts are.
-
-This is a personal portfolio proof of concept. The building model, the building's location and the sensor data are not real measurements; how this differs from an industrial digital twin is explained in [Industrial-grade precision vs. this project](#industrial-grade-precision-vs-this-project).
 
 ### What is this
 
@@ -728,7 +720,7 @@ MIT
 
 ### Notes: portfolio and tech stack
 
-This is a personal portfolio project that shows how geography, buildings, sensors and AI can be joined into one operations-room view: open formats and open-source packages only, a complete demo flow within a minimal MVP scope (5 stages), and an honest account of the gap to an industrial digital twin.
+This is a personal portfolio proof of concept. The building model, the building's location and the sensor data are not real measurements; how this differs from an industrial digital twin is explained in [Industrial-grade precision vs. this project](#industrial-grade-precision-vs-this-project). It shows how geography, buildings, sensors and AI can be joined into one operations-room view: open formats and open-source packages only, a complete demo flow within a minimal MVP scope (5 stages), and an honest account of the gap to an industrial digital twin.
 
 - Frontend: Vue 3, TypeScript, Vite, CesiumJS, That Open Components, web-ifc (WASM), Three.js, Tailwind CSS, reka-ui
 - Backend: .NET 9, ASP.NET Core Minimal API, SignalR
